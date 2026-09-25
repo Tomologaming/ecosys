@@ -1,0 +1,60 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare app icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ios/Ecosys/Assets.xcassets/AppIcon.appiconset
+          curl -L --fail --retry 3 \
+            -o ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
+            https://raw.githubusercontent.com/Tomologaming/ecosys/main/icon/ecosys_app_icon_v3.png
+
+      - name: Build unsigned iOS app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/Ecosys.xcodeproj \
+            -scheme Ecosys \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package IPA for Sideloadly
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/Payload
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/Ecosys.app build/Payload/Ecosys.app
+          cd build
+          zip -qry Ecosys-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ecosys-iOS-unsigned-ipa
+          path: build/Ecosys-unsigned.ipa
+          retention-days: 30
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ecosys-iOS-app-bundle
+          path: build/Payload/Ecosys.app
+          retention-days: 30
