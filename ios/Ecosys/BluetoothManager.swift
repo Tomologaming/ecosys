@@ -111,7 +111,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        status = "Verbunden mit (peripheral.name ?? "Ecosys device")"
+        status = "Verbunden mit \(peripheral.name ?? "Ecosys device")"
         peripheral.discoverServices([Self.serviceUUID])
     }
 
