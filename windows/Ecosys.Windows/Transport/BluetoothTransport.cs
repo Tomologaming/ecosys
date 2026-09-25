@@ -40,6 +40,7 @@ public sealed class BluetoothTransport : ITransport
                 writer = new DataWriter(socket.OutputStream);
                 StatusChanged?.Invoke(this, $"Connected to {info.Name}");
                 _ = ReadLoopAsync(socket.InputStream);
+                await SendAsync(EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows").ToJsonString(), cancellationToken);
                 return;
             }
             catch (Exception ex)
