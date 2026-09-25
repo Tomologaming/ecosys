@@ -384,7 +384,13 @@ sealed class EcosysForm : Form
 
             if (Kind == "phone")
             {
-                e.Graphics.DrawRoundedRectangle(pen, 10, 4, 18, 30, 4);
+                using var path = new GraphicsPath();
+                path.AddArc(10, 4, 8, 8, 180, 90);
+                path.AddArc(20, 4, 8, 8, 270, 90);
+                path.AddArc(20, 26, 8, 8, 0, 90);
+                path.AddArc(10, 26, 8, 8, 90, 90);
+                path.CloseFigure();
+                e.Graphics.DrawPath(pen, path);
             }
             else
             {
