@@ -53,15 +53,23 @@ jobs:
         run: |
           winget install --id JRSoftware.InnoSetup.7 -e --accept-package-agreements --accept-source-agreements --silent
 
+      - name: Locate Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem -Path "$env:ProgramFiles", "$env:ProgramFiles(x86)" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
+          "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
       - name: Build online installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" installer/Ecosys.iss
+          & "$env:ISCC_PATH" installer/Ecosys.iss
 
       - name: Build offline installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" `
+          & "$env:ISCC_PATH" `
             /DOfflineMode `
             /DOutputBaseFilename=Ecosys-Offline-Setup `
             installer/Ecosys.iss
