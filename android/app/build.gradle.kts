@@ -5,3 +5,8 @@ android { namespace = "com.tomologaming.ecosys"; compileSdk = 35
     buildTypes { release { isMinifyEnabled = false } }
     kotlinOptions { jvmTarget = "17" }
 }
+
+dependencies {
+    implementation("androidx.activity:activity-ktx:1.10.1")
+    implementation("androidx.core:core-ktx:1.15.0")
+}
