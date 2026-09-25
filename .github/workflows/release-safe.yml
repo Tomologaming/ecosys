@@ -1,0 +1,83 @@
+name: Safe Windows Release
+
+on:
+  push:
+    branches:
+      - Safe
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: safe-windows-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Safe
+        uses: actions/checkout@v4
+        with:
+          ref: Safe
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.425"
+
+      - name: Verify .NET SDK
+        run: dotnet --version
+
+      - name: Publish self-contained Windows app
+        run: >
+          dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output dist/publish
+          -p:PublishSingleFile=false
+          -p:IncludeNativeLibrariesForSelfExtract=false
+
+      - name: Create Safe application archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/publish/* -DestinationPath dist/Ecosys-windows-safe.zip
+          (Get-FileHash dist/Ecosys-windows-safe.zip -Algorithm SHA256).Hash |
+            Out-File dist/Ecosys-windows-safe.zip.sha256 -Encoding ascii
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          winget install --id JRSoftware.InnoSetup.7 -e --accept-package-agreements --accept-source-agreements --silent
+
+      - name: Build online installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" installer/Ecosys.iss
+
+      - name: Build offline installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" `
+            /DOfflineMode `
+            /DOutputBaseFilename=Ecosys-Offline-Setup `
+            installer/Ecosys.iss
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "safe-$env:GITHUB_RUN_NUMBER"
+          gh release create $tag `
+            "dist/Ecosys-windows-safe.zip" `
+            "dist/Ecosys-windows-safe.zip.sha256" `
+            "installer/Output/Ecosys-Setup.exe" `
+            "installer/Output/Ecosys-Offline-Setup.exe" `
+            --target Safe `
+            --title "Ecosys Safe $tag" `
+            --notes "Automated safe-channel build from the Safe branch." `
+            --latest
