@@ -22,10 +22,13 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "8.0.425"
+
+      - name: Verify .NET SDK
+        run: dotnet --version
 
       - name: Build
-        run: dotnet build windows/Ecosys.sln --configuration Release
+        run: dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release
 
       - name: Publish
         run: dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --output dist
