@@ -56,13 +56,13 @@ jobs:
       - name: Build online installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe" installer/Ecosys.iss
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" installer/Ecosys.iss
 
       - name: Build offline installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe" `
-            /DOfflinePayload="$((Resolve-Path 'dist/Ecosys-windows-safe.zip').Path)" `
+          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" `
+            /DOfflineMode `
             /DOutputBaseFilename=Ecosys-Offline-Setup `
             installer/Ecosys.iss
 
