@@ -33,6 +33,7 @@ sealed class EcosysForm : Form
         MinimumSize = new Size(620, 760);
         BackColor = Page;
         DoubleBuffered = true;
+        Icon = CreateAppIcon();
 
         var root = new Panel { Dock = DockStyle.Fill, BackColor = Page, Padding = new Padding(28) };
         Controls.Add(root);
@@ -81,7 +82,7 @@ sealed class EcosysForm : Form
         localNameLabel.Text = Environment.MachineName;
         localNameLabel.AutoSize = true;
         localNameLabel.Font = new Font("Segoe UI Semibold", 10);
-        localNameLabel.ForeColor = Text;
+        localNameLabel.ForeColor = Ink;
         localNameLabel.Location = new Point(66, 14);
         local.Controls.Add(localNameLabel);
         local.Controls.Add(new Label { Text = "Windows · Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, Location = new Point(66, 40) });
@@ -123,14 +124,14 @@ sealed class EcosysForm : Form
             Size = new Size(500, 46),
             Location = new Point(18, 8),
             Font = new Font("Segoe UI", 8.5f),
-            ForeColor = Text
+            ForeColor = Ink
         });
 
         AddSection(content, "VERBINDUNG", 0, 508);
         connectionLabel.Text = "Kein Gerät verbunden";
         connectionLabel.AutoSize = true;
         connectionLabel.Font = new Font("Segoe UI Semibold", 10);
-        connectionLabel.ForeColor = Text;
+        connectionLabel.ForeColor = Ink;
         connectionLabel.Location = new Point(0, 536);
         content.Controls.Add(connectionLabel);
 
@@ -196,7 +197,7 @@ sealed class EcosysForm : Form
             var card = MakeCard(devicesPanel, 0, 0, 520, 68);
             card.Margin = new Padding(0, 0, 0, 8);
             card.Controls.Add(new DeviceGlyph { Location = new Point(14, 15), Size = new Size(38, 38), Kind = "phone" });
-            card.Controls.Add(new Label { Text = device.Name, AutoSize = true, Font = new Font("Segoe UI Semibold", 9.5f), ForeColor = Text, Location = new Point(66, 13) });
+            card.Controls.Add(new Label { Text = device.Name, AutoSize = true, Font = new Font("Segoe UI Semibold", 9.5f), ForeColor = Ink, Location = new Point(66, 13) });
             card.Controls.Add(new Label { Text = "Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = Muted, Location = new Point(66, 38) });
 
             var connect = MakeButton("Verbinden", Blue, Color.White, 402, 17, 98, 34);
@@ -259,7 +260,7 @@ sealed class EcosysForm : Form
 
     static void AddSection(Control parent, string text, int x, int y)
     {
-        parent.Controls.Add(new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI Semibold", 8), ForeColor = Text, Location = new Point(x, y) });
+        parent.Controls.Add(new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI Semibold", 8), ForeColor = Ink, Location = new Point(x, y) });
     }
 
     static Button MakeButton(string text, Color fill, Color fore, int x, int y, int w, int h)
@@ -300,6 +301,25 @@ sealed class EcosysForm : Form
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ReleaseCapture();
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wp, int lp);
+
+
+    static Icon CreateAppIcon()
+    {
+        using var bitmap = new Bitmap(64, 64);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            graphics.Clear(Color.Transparent);
+            using var blue = new SolidBrush(Blue);
+            graphics.FillEllipse(blue, 13, 13, 38, 38);
+            using var green = new SolidBrush(Color.FromArgb(63, 174, 116));
+            graphics.FillPolygon(green, new[]
+            {
+                new PointF(19, 26), new PointF(31, 20), new PointF(32, 29), new PointF(23, 34)
+            });
+        }
+        return Icon.FromHandle(bitmap.GetHicon());
+    }
 
     sealed class GradientPanel : Panel
     {
