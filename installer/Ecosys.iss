@@ -18,7 +18,6 @@ OutputBaseFilename=Ecosys-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-SetupArchitecture=x64compatible
 ArchitecturesAllowed=x64compatible
 UninstallDisplayIcon={app}\{#AppExeName}
 CloseApplications=yes
