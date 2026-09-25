@@ -56,8 +56,7 @@ public sealed class BluetoothTransport : ITransport
     public async Task SendAsync(string message, CancellationToken cancellationToken = default)
     {
         if (writer is null) return;
-        writer.WriteString(message + "
-");
+        writer.WriteString(message + "\n");
         await writer.StoreAsync().AsTask(cancellationToken);
     }
 
@@ -72,8 +71,7 @@ public sealed class BluetoothTransport : ITransport
             {
                 await reader.LoadAsync(1);
                 var b = reader.ReadByte();
-                if (b == (byte)'
-')
+                if (b == (byte)'\n')
                 {
                     MessageReceived?.Invoke(this, System.Text.Encoding.UTF8.GetString(buffer.ToArray()));
                     buffer.Clear();
