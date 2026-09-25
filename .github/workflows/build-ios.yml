@@ -22,7 +22,7 @@ jobs:
             -o ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
             https://raw.githubusercontent.com/Tomologaming/ecosys/main/icon/ecosys_app_icon_v3.png
 
-      - name: Build unsigned iOS app
+      - name: Build iOS app for Sideloadly
         run: |
           set -euo pipefail
           xcodebuild \
@@ -36,6 +36,17 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
+      - name: Prepare app bundle for Sideloadly
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/DerivedData/Build/Products/Release-iphoneos/Ecosys.app"
+          test -d "$APP"
+          # Give the app a valid ad-hoc signature so the IPA has a code signature
+          # that Sideloadly can replace with the user's Apple signing identity.
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
+
       - name: Package IPA for Sideloadly
         shell: bash
         run: |
@@ -43,13 +54,13 @@ jobs:
           mkdir -p build/Payload
           cp -R build/DerivedData/Build/Products/Release-iphoneos/Ecosys.app build/Payload/Ecosys.app
           cd build
-          zip -qry Ecosys-unsigned.ipa Payload
+          zip -qry Ecosys-sideloadly.ipa Payload
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Ecosys-iOS-unsigned-ipa
-          path: build/Ecosys-unsigned.ipa
+          name: Ecosys-iOS-sideloadly-ipa
+          path: build/Ecosys-sideloadly.ipa
           retention-days: 30
 
       - name: Upload app bundle
