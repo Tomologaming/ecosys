@@ -19,7 +19,7 @@ sealed class EcosysForm : Form
     static readonly Color Navy = Color.FromArgb(18, 58, 94);
     static readonly Color Green = Color.FromArgb(45, 143, 92);
     static readonly Color Blue = Color.FromArgb(47, 111, 176);
-    static readonly Color Text = Color.FromArgb(22, 50, 74);
+    static readonly Color Ink = Color.FromArgb(22, 50, 74);
     static readonly Color Muted = Color.FromArgb(103, 117, 125);
     static readonly Color Page = Color.FromArgb(238, 242, 244);
     static readonly Color Card = Color.FromArgb(247, 249, 250);
@@ -46,7 +46,7 @@ sealed class EcosysForm : Form
             Text = "Ecosys",
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 10),
-            ForeColor = Text,
+            ForeColor = Ink,
             Location = new Point(0, 7)
         };
         top.Controls.Add(title);
@@ -86,7 +86,7 @@ sealed class EcosysForm : Form
         local.Controls.Add(localNameLabel);
         local.Controls.Add(new Label { Text = "Windows · Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, Location = new Point(66, 40) });
 
-        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Text, 348, 19, 180, 34);
+        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Ink, 348, 19, 180, 34);
         settings.Click += (_, _) => OpenSettings("ms-settings:bluetooth");
         local.Controls.Add(settings);
 
@@ -380,7 +380,7 @@ sealed class EcosysForm : Form
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Text, 2);
+            using var pen = new Pen(Ink, 2);
 
             if (Kind == "phone")
             {
