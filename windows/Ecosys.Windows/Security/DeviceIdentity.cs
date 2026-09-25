@@ -4,11 +4,22 @@ namespace Ecosys.Windows.Security;
 
 public sealed class DeviceIdentity : IDisposable
 {
-    private readonly ECDsa signingKey;
+    private readonly CngKey key;
+    private readonly ECDsaCng signingKey;
 
-    public DeviceIdentity()
+    public DeviceIdentity(string keyName = "Ecosys.Identity")
     {
-        signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        key = CngKey.Exists(keyName, CngProvider.MicrosoftSoftwareKeyStorageProvider)
+            ? CngKey.Open(keyName, CngProvider.MicrosoftSoftwareKeyStorageProvider)
+            : CngKey.Create(
+                CngAlgorithm.ECDsaP256,
+                keyName,
+                new CngKeyCreationParameters
+                {
+                    Provider = CngProvider.MicrosoftSoftwareKeyStorageProvider
+                });
+
+        signingKey = new ECDsaCng(key);
     }
 
     public byte[] PublicKey => signingKey.ExportSubjectPublicKeyInfo();
@@ -21,8 +32,18 @@ public sealed class DeviceIdentity : IDisposable
     public bool Verify(ReadOnlySpan<byte> data, ReadOnlySpan<byte> signature) =>
         signingKey.VerifyData(data, signature, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
 
+    public ECDiffieHellman CreateEphemeralKey() =>
+        ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+
     public static byte[] DeriveSharedSecret(ECDiffieHellman local, ECDiffieHellmanPublicKey peer) =>
         local.DeriveKeyMaterial(peer);
+
+    public static ECDiffieHellmanPublicKey ImportEcdhPublicKey(byte[] encoded)
+    {
+        using var key = ECDiffieHellman.Create();
+        key.ImportSubjectPublicKeyInfo(encoded, out _);
+        return key.PublicKey;
+    }
 
     public static byte[] AesGcmEncrypt(ReadOnlySpan<byte> key, ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> aad = default)
     {
@@ -46,14 +67,9 @@ public sealed class DeviceIdentity : IDisposable
         return plaintext;
     }
 
-    public ECDiffieHellman CreateEphemeralKey() => ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
-
-    public static ECDiffieHellmanPublicKey ImportEcdhPublicKey(byte[] encoded)
+    public void Dispose()
     {
-        using var key = ECDiffieHellman.Create();
-        key.ImportSubjectPublicKeyInfo(encoded, out _);
-        return key.PublicKey;
+        signingKey.Dispose();
+        key.Dispose();
     }
-
-    public void Dispose() => signingKey.Dispose();
 }
