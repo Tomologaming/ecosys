@@ -53,18 +53,35 @@ jobs:
         run: |
           winget install --id JRSoftware.InnoSetup.7 -e --accept-package-agreements --accept-source-agreements --silent
 
+      - name: Locate Inno Setup
+        shell: pwsh
+        run: |
+          $candidates = @(
+            (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 7\ISCC.exe"),
+            (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe"),
+            (Join-Path $env:ProgramFiles "Inno Setup 7\ISCC.exe"),
+            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 7\ISCC.exe"),
+            (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
+            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe")
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ -PathType Leaf } | Select-Object -First 1
+          if (-not $iscc) {
+            $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+            if ($command) { $iscc = $command.Source }
+          }
+          if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
+          Write-Host "Using Inno Setup compiler: $iscc"
+          "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
       - name: Build online installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" installer/Ecosys.iss
+          & "$env:ISCC_PATH" installer/Ecosys.iss
 
       - name: Build offline installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles}\Inno Setup 7\ISCC.exe" `
-            /DOfflineMode `
-            /DOutputBaseFilename=Ecosys-Offline-Setup `
-            installer/Ecosys.iss
+          & "$env:ISCC_PATH" /DOfflineMode /DOutputBaseFilename=Ecosys-Offline-Setup installer/Ecosys.iss
 
       - name: Create release
         shell: pwsh
