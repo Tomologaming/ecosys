@@ -10,34 +10,34 @@ The security design is transport-independent so the same session protocol can la
 
 Ecosys v1 security uses platform-standard primitives:
 
-- Long-term device identity: Ed25519 signing key pair.
-- Ephemeral session key agreement: X25519.
+- Long-term device identity: ECDSA P-256 signing key pair.
+- Ephemeral session key agreement: ECDH P-256.
 - Key derivation: HKDF-SHA-256.
-- Payload encryption: ChaCha20-Poly1305.
-- Authentication: Ed25519 signatures over the complete handshake transcript.
+- Payload encryption: AES-256-GCM.
+- Authentication: ECDSA P-256 signatures over the complete handshake transcript.
 
 Implementations MUST use audited platform/library implementations. Ecosys MUST NOT implement these primitives itself.
 
 ## Device identity
 
-Each installation creates a random long-term Ed25519 key pair on first start.
+Each installation creates a random long-term ECDSA P-256 key pair on first start.
 
 The public key is the stable cryptographic identity. The human-readable device ID is derived from it and is not itself a security credential.
 
 Private identity keys MUST remain local to the device and MUST NOT be transmitted.
 
-The Android implementation SHOULD store the private key using Android Keystore-backed protection where the selected crypto provider supports the required Ed25519 operation. Windows SHOULD use the Windows CNG key storage facilities where practical.
+The Android implementation SHOULD store the private key using Android Keystore-backed protection where the selected crypto provider supports the required ECDSA P-256 operation. Windows SHOULD use the Windows CNG key storage facilities where practical.
 
 ## Pairing flow
 
 A transport connection starts in an untrusted state:
 
-1. The initiator sends `pairing.request` with its identity public key, device metadata, and an ephemeral X25519 public key.
+1. The initiator sends `pairing.request` with its identity public key, device metadata, and an ephemeral ECDH P-256 public key.
 2. The responder presents the peer identity to the user.
 3. The responder sends `pairing.response` containing its identity public key, ephemeral public key, an explicit approval result, and a signature.
 4. The initiator verifies the responder signature and transcript.
 5. The initiator signs the transcript and sends the final authentication message.
-6. Both sides derive the same session key using X25519 + HKDF-SHA-256.
+6. Both sides derive the same session key using ECDH P-256 + HKDF-SHA-256.
 7. Application messages are accepted only after the session reaches `authenticated`.
 
 A rejected pairing MUST terminate the session.
