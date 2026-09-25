@@ -1,3 +1,4 @@
+using Ecosys.Windows.Protocol;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Devices.Enumeration;
