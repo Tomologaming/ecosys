@@ -31,6 +31,11 @@ Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
+[Files]
+#ifdef OfflineMode
+Source: "..\dist\publish\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+#endif
+
 [Icons]
 Name: "{group}\Ecosys"; Filename: "{app}\{#AppExeName}"
 Name: "{autodesktop}\Ecosys"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
@@ -39,6 +44,12 @@ Name: "{autodesktop}\Ecosys"; Filename: "{app}\{#AppExeName}"; Tasks: desktopico
 Filename: "{app}\{#AppExeName}"; Description: "Ecosys starten"; Flags: nowait postinstall skipifsilent
 
 [Code]
+#ifdef OfflineMode
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+end;
+#else
 const
   SafeAssetUrl = '{#SafeAssetUrl}';
 
@@ -85,3 +96,4 @@ begin
     DownloadPage.Hide;
   end;
 end;
+#endif
