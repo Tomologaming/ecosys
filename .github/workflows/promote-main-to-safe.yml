@@ -1,1 +1,54 @@
-name: Promote Main to Safe\n\non:\n  workflow_dispatch:\n    inputs:\n      confirmation:\n        description: "Type PROMOTE to copy the current main commit to Safe"\n        required: true\n        type: string\n\npermissions:\n  contents: write\n\nconcurrency:\n  group: promote-main-to-safe\n  cancel-in-progress: false\n\njobs:\n  promote:\n    runs-on: ubuntu-latest\n\n    steps:\n      - name: Verify confirmation\n        if: ${{ inputs.confirmation != 'PROMOTE' }}\n        run: |\n          echo "Confirmation was not PROMOTE. No changes were made."\n          exit 1\n\n      - name: Checkout main\n        uses: actions/checkout@v4\n        with:\n          ref: main\n          fetch-depth: 0\n\n      - name: Promote main to Safe\n        shell: bash\n        run: |\n          set -euo pipefail\n          MAIN_SHA="$(git rev-parse HEAD)"\n          SAFE_SHA="$(git rev-parse origin/Safe 2>/dev/null || true)"\n\n          echo "main: $MAIN_SHA"\n          echo "Safe: ${SAFE_SHA:-<unknown>}"\n\n          if [ "$MAIN_SHA" = "$SAFE_SHA" ]; then\n            echo "Safe already points to the current main commit."\n            exit 0\n          fi\n\n          git push origin "HEAD:refs/heads/Safe"\n\n      - name: Summary\n        run: |\n          echo "The current main commit was promoted to Safe."
+name: Promote Main to Safe
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type PROMOTE to copy the current main commit to Safe"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote-main-to-safe
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify confirmation
+        if: ${{ inputs.confirmation != 'PROMOTE' }}
+        run: |
+          echo "Confirmation was not PROMOTE. No changes were made."
+          exit 1
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Promote main to Safe
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(git rev-parse HEAD)"
+          SAFE_SHA="$(git rev-parse origin/Safe 2>/dev/null || true)"
+
+          echo "main: $MAIN_SHA"
+          echo "Safe: ${SAFE_SHA:-<unknown>}"
+
+          if [ "$MAIN_SHA" = "$SAFE_SHA" ]; then
+            echo "Safe already points to the current main commit."
+            exit 0
+          fi
+
+          git push origin "HEAD:refs/heads/Safe"
+
+      - name: Summary
+        run: |
+          echo "The current main commit was promoted to Safe."
