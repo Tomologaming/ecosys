@@ -1,4 +1,4 @@
-using System.Windows.Forms;
+using System.Drawing.Drawing2D;
 using Ecosys.Windows.Transport;
 
 ApplicationConfiguration.Initialize();
@@ -8,131 +8,134 @@ sealed class EcosysForm : Form
 {
     private readonly BluetoothTransport transport = new();
     private readonly Label status = new();
-    private readonly Label deviceStatus = new();
+    private readonly Panel statusDot = new();
     private readonly ListBox devices = new();
     private readonly Button scan = new();
     private readonly Button hello = new();
+
+    private static readonly Color Navy = Color.FromArgb(22, 50, 74);
+    private static readonly Color Blue = Color.FromArgb(47, 111, 176);
+    private static readonly Color Green = Color.FromArgb(45, 143, 92);
+    private static readonly Color SoftBlue = Color.FromArgb(234, 242, 247);
+    private static readonly Color Page = Color.FromArgb(233, 237, 240);
 
     public EcosysForm()
     {
         Text = "Ecosys";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(620, 720);
-        Size = new Size(720, 820);
-        BackColor = Color.FromArgb(247, 248, 250);
-        Font = new Font("Segoe UI", 10);
+        MinimumSize = new Size(560, 760);
+        Size = new Size(620, 900);
+        BackColor = Page;
+        Font = new Font("Segoe UI", 9.5f);
+        DoubleBuffered = true;
 
-        var content = new Panel { Dock = DockStyle.Fill, Padding = new Padding(28) };
+        var content = new Panel { Dock = DockStyle.Fill, Padding = new Padding(22), BackColor = Color.White };
         Controls.Add(content);
 
-        var title = new Label {
-            Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI Semibold", 28),
-            ForeColor = Color.FromArgb(22, 24, 29), Location = new Point(28, 24)
-        };
-        content.Controls.Add(title);
+        var header = new Panel { Location = new Point(0, 0), Size = new Size(576, 64), BackColor = Color.FromArgb(246, 248, 249) };
+        content.Controls.Add(header);
 
-        var tagline = new Label {
-            Text = "Private. Direct. Yours.", AutoSize = true,
-            ForeColor = Color.FromArgb(105, 110, 120), Location = new Point(30, 70)
-        };
-        content.Controls.Add(tagline);
+        var logo = new EcosysLogo { Location = new Point(14, 13), Size = new Size(38, 38) };
+        header.Controls.Add(logo);
+        header.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Regular), ForeColor = Color.FromArgb(58, 70, 77), Location = new Point(60, 22) });
 
-        var statusCard = new Panel {
-            BackColor = Color.White, Location = new Point(28, 108), Size = new Size(636, 64)
-        };
-        statusCard.Paint += (_, e) => ControlPaint.DrawBorder(e.Graphics, statusCard.ClientRectangle,
-            Color.FromArgb(230, 232, 236), ButtonBorderStyle.Solid);
-        content.Controls.Add(statusCard);
+        var hero = new Panel { Location = new Point(0, 64), Size = new Size(576, 180), BackColor = Navy };
+        hero.Paint += PaintHero;
+        content.Controls.Add(hero);
+        var heroLogo = new EcosysLogo { Location = new Point(22, 28), Size = new Size(62, 62), DrawRing = true };
+        hero.Controls.Add(heroLogo);
+        hero.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI", 17, FontStyle.Regular), ForeColor = Color.FromArgb(234, 242, 247), Location = new Point(96, 38) });
+        hero.Controls.Add(new Label { Text = "PRIVATE. DIRECT. YOURS.", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(169, 214, 196), Location = new Point(98, 66) });
 
-        var dot = new Panel { BackColor = Color.FromArgb(155, 160, 170), Size = new Size(12, 12), Location = new Point(20, 26) };
-        statusCard.Controls.Add(dot);
-        status.Text = "Bluetooth starting…";
+        var bt = new Panel { Location = new Point(22, 112), Size = new Size(532, 42), BackColor = Color.FromArgb(255, 255, 255) };
+        bt.BackColor = Color.FromArgb(42, 72, 93);
+        hero.Controls.Add(bt);
+        statusDot.Size = new Size(8, 8); statusDot.Location = new Point(505, 17); statusDot.BackColor = Color.FromArgb(95, 214, 138);
+        bt.Controls.Add(statusDot);
+        bt.Controls.Add(new Label { Text = "♢  Bluetooth: bereit", AutoSize = true, ForeColor = Color.FromArgb(234, 242, 247), Location = new Point(14, 12) });
+        status.Text = "Bereit";
         status.AutoSize = true;
-        status.Location = new Point(44, 21);
-        status.ForeColor = Color.FromArgb(55, 59, 68);
-        statusCard.Controls.Add(status);
+        status.ForeColor = Color.FromArgb(207, 224, 232);
+        status.Location = new Point(330, 12);
+        bt.Controls.Add(status);
 
-        var thisDevice = SectionTitle("This device", 28, 192, content);
-        var deviceCard = new Panel { BackColor = Color.White, Location = new Point(28, 228), Size = new Size(636, 92) };
-        content.Controls.Add(deviceCard);
+        AddSection(content, "This device", 0, 266);
+        var local = Card(content, 0, 302, 576, 82);
+        local.Controls.Add(new Label { Text = Environment.MachineName, AutoSize = true, Font = new Font("Segoe UI Semibold", 11.5f), ForeColor = Navy, Location = new Point(62, 17) });
+        local.Controls.Add(new Label { Text = "Dieser PC · Windows", AutoSize = true, ForeColor = Color.FromArgb(91, 107, 116), Location = new Point(62, 44) });
+        local.Controls.Add(new Label { Text = "Sichtbar", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(33, 122, 78), BackColor = Color.FromArgb(223, 242, 230), Location = new Point(474, 30) });
 
-        deviceStatus.Text = Environment.MachineName;
-        deviceStatus.Font = new Font("Segoe UI Semibold", 15);
-        deviceStatus.Location = new Point(18, 16);
-        deviceStatus.AutoSize = true;
-        deviceCard.Controls.Add(deviceStatus);
-        deviceCard.Controls.Add(new Label {
-            Text = "Windows • This device", AutoSize = true, Location = new Point(18, 48),
-            ForeColor = Color.FromArgb(105, 110, 120)
-        });
-
-        SectionTitle("Nearby devices", 28, 344, content);
-        devices.Location = new Point(28, 380);
-        devices.Size = new Size(636, 170);
-        devices.BorderStyle = BorderStyle.FixedSingle;
-        devices.BackColor = Color.White;
-        devices.HorizontalScrollbar = true;
-        content.Controls.Add(devices);
-
-        scan.Text = "Find nearby devices";
-        scan.Location = new Point(28, 565);
-        scan.Size = new Size(306, 48);
-        scan.BackColor = Color.FromArgb(42, 91, 220);
-        scan.ForeColor = Color.White;
-        scan.FlatStyle = FlatStyle.Flat;
-        scan.Click += async (_, _) => await ScanAsync();
-        content.Controls.Add(scan);
-
-        var refresh = new Button {
-            Text = "Refresh", Location = new Point(358, 565), Size = new Size(140, 48),
-            FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(42, 91, 220)
-        };
+        AddSection(content, "Nearby devices", 0, 404);
+        var refresh = Button("↻", SoftBlue, Navy, 28, 397, 34, 34);
         refresh.Click += async (_, _) => await ScanAsync();
         content.Controls.Add(refresh);
 
+        devices.Location = new Point(0, 440);
+        devices.Size = new Size(576, 164);
+        devices.BorderStyle = BorderStyle.None;
+        devices.BackColor = Color.FromArgb(245, 248, 249);
+        devices.ForeColor = Navy;
+        devices.Font = new Font("Segoe UI", 9.5f);
+        content.Controls.Add(devices);
+
+        scan.Text = "Find nearby devices";
+        scan.Location = new Point(0, 616);
+        scan.Size = new Size(576, 44);
+        StylePrimary(scan);
+        scan.Click += async (_, _) => await ScanAsync();
+        content.Controls.Add(scan);
+
+        AddSection(content, "Test-Verbindung", 0, 682);
         hello.Text = "Send Hello";
-        hello.Location = new Point(28, 628);
-        hello.Size = new Size(636, 48);
-        hello.FlatStyle = FlatStyle.Flat;
-        hello.BackColor = Color.White;
-        hello.ForeColor = Color.FromArgb(42, 91, 220);
-        hello.Click += async (_, _) => {
+        hello.Location = new Point(0, 718);
+        hello.Size = new Size(576, 44);
+        StyleGreen(hello);
+        hello.Click += async (_, _) =>
+        {
             await transport.SendAsync(Ecosys.Windows.Protocol.EcosysMessage.Hello(
                 $"windows-{Environment.MachineName}", Environment.MachineName, "windows").ToJsonString());
-            status.Text = "Hello sent";
+            SetStatus("→ Hello gesendet");
         };
         content.Controls.Add(hello);
 
-        content.Controls.Add(new Label {
-            Text = "Ecosys connects your devices directly. Your data stays between your devices.",
-            AutoSize = false, TextAlign = ContentAlignment.MiddleCenter,
-            ForeColor = Color.FromArgb(125, 129, 138), Location = new Point(40, 690), Size = new Size(610, 45)
-        });
+        var footer = new Label { Text = "Weitere Funktionen folgen …", AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(147, 161, 168), Location = new Point(0, 774), Size = new Size(576, 36) };
+        content.Controls.Add(footer);
 
         transport.StatusChanged += (_, message) => SetStatus(message);
-        transport.MessageReceived += (_, message) => SetStatus($"Received: {message}");
-
+        transport.MessageReceived += (_, message) => SetStatus($"← {message}");
         Shown += async (_, _) => await ScanAsync();
         FormClosed += async (_, _) => await transport.DisposeAsync();
     }
+
+    private static Panel Card(Control parent, int x, int y, int w, int h)
+    {
+        var p = new Panel { Location = new Point(x, y), Size = new Size(w, h), BackColor = Color.FromArgb(245, 248, 249) };
+        p.Paint += (_, e) => ControlPaint.DrawBorder(e.Graphics, p.ClientRectangle, Color.FromArgb(227, 233, 235), ButtonBorderStyle.Solid);
+        parent.Controls.Add(p);
+        var icon = new Panel { Location = new Point(14, 22), Size = new Size(36, 36), BackColor = SoftBlue };
+        p.Controls.Add(icon);
+        return p;
+    }
+
+    private static void AddSection(Control parent, string text, int x, int y)
+    {
+        parent.Controls.Add(new Label { Text = text.ToUpperInvariant(), AutoSize = true, Font = new Font("Segoe UI Semibold", 8.5f), ForeColor = Navy, Location = new Point(x, y) });
+    }
+
+    private static Button Button(string text, Color back, Color fore, int x, int y, int w, int h) =>
+        new() { Text = text, Location = new Point(x, y), Size = new Size(w, h), BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat };
+
+    private static void StylePrimary(Button b) { b.BackColor = Blue; b.ForeColor = Color.White; b.FlatStyle = FlatStyle.Flat; b.FlatAppearance.BorderSize = 0; }
+    private static void StyleGreen(Button b) { b.BackColor = Green; b.ForeColor = Color.White; b.FlatStyle = FlatStyle.Flat; b.FlatAppearance.BorderSize = 0; }
 
     private async Task ScanAsync()
     {
         scan.Enabled = false;
         devices.Items.Clear();
-        status.Text = "Scanning for nearby Ecosys devices…";
-        try
-        {
-            await transport.StartAsync();
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"Scan failed: {ex.Message}");
-        }
-        finally
-        {
-            scan.Enabled = true;
-        }
+        SetStatus("Suche nach Ecosys-Geräten …");
+        try { await transport.StartAsync(); }
+        catch (Exception ex) { SetStatus($"Scan fehlgeschlagen: {ex.Message}"); }
+        finally { scan.Enabled = true; }
     }
 
     private void SetStatus(string text)
@@ -140,16 +143,32 @@ sealed class EcosysForm : Form
         if (InvokeRequired) { BeginInvoke(() => SetStatus(text)); return; }
         status.Text = text;
         devices.Items.Add(text);
-        if (devices.Items.Count > 100) devices.Items.RemoveAt(0);
+        if (devices.Items.Count > 30) devices.Items.RemoveAt(0);
     }
 
-    private static Label SectionTitle(string text, int x, int y, Control parent)
+    private sealed class EcosysLogo : Control
     {
-        var label = new Label {
-            Text = text, AutoSize = true, Location = new Point(x, y),
-            Font = new Font("Segoe UI Semibold", 14), ForeColor = Color.FromArgb(35, 38, 45)
-        };
-        parent.Controls.Add(label);
-        return label;
+        public bool DrawRing { get; set; }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var r = Math.Min(ClientSize.Width, ClientSize.Height);
+            var cx = ClientSize.Width / 2f; var cy = ClientSize.Height / 2f;
+            if (DrawRing) using (var pen = new Pen(Color.FromArgb(95, 255, 255, 255), 2)) e.Graphics.DrawEllipse(pen, cx-r/2+3, cy-r/2+3, r-6, r-6);
+            using var b = new SolidBrush(Blue);
+            e.Graphics.FillEllipse(b, cx-r*.32f, cy-r*.32f, r*.64f, r*.64f);
+            using var g1 = new SolidBrush(Color.FromArgb(63,174,116));
+            using var g2 = new SolidBrush(Green);
+            var p1 = new[] { new PointF(cx-r*.20f,cy-r*.10f), new PointF(cx-r*.02f,cy-r*.20f), new PointF(cx+r*.00f,cy-r*.04f), new PointF(cx-r*.15f,cy+r*.02f) };
+            var p2 = new[] { new PointF(cx+r*.05f,cy-r*.20f), new PointF(cx+r*.30f,cy-r*.24f), new PointF(cx+r*.28f,cy-r*.03f), new PointF(cx+r*.08f,cy+r*.02f) };
+            e.Graphics.FillPolygon(g1, p1); e.Graphics.FillPolygon(g2, p2);
+        }
+    }
+
+    private void PaintHero(object? sender, PaintEventArgs e)
+    {
+        using var brush = new LinearGradientBrush(((Control)sender!).ClientRectangle, Color.FromArgb(18,58,94), Color.FromArgb(28,110,79), 45f);
+        e.Graphics.FillRectangle(brush, ((Control)sender!).ClientRectangle);
     }
 }
