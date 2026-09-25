@@ -1,5 +1,6 @@
 import Foundation
 import CoreBluetooth
+import UIKit
 import Combine
 
 struct EcosysDevice: Identifiable {
@@ -49,12 +50,12 @@ final class BluetoothManager: NSObject, ObservableObject {
         central.stopScan()
         isScanning = false
         if connected == nil {
-            status = devices.isEmpty ? "Keine Ecosys-Geräte gefunden" : "(devices.count) Gerät(e) gefunden"
+            status = devices.isEmpty ? "Keine Ecosys-Geräte gefunden" : "\(devices.count) Gerät(e) gefunden"
         }
     }
 
     func connect(to device: EcosysDevice) {
-        status = "Verbinde mit (device.name)…"
+        status = "Verbinde mit \(device.name)…"
         connected = device.peripheral
         device.peripheral.delegate = self
         central.connect(device.peripheral)
