@@ -1,0 +1,44 @@
+name: Promote Main to Safe
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type PROMOTE to merge the current main into Safe"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote-main-to-safe
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: ${{ inputs.confirmation == 'PROMOTE' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: Safe
+          fetch-depth: 0
+      - name: Merge main into Safe
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main Safe
+          git checkout Safe
+          git merge --no-edit origin/main || {
+            echo "Main and Safe have independent copies of the Safe-only installer files. Keep the Safe versions and continue the merge."
+            git checkout --ours -- .github/workflows/release-safe.yml docs/windows-installer.md installer/Ecosys.iss
+            git add .github/workflows/release-safe.yml docs/windows-installer.md installer/Ecosys.iss
+            git -c core.editor=true merge --continue
+          }
+          git push origin Safe
+      - name: Summary
+        run: echo "main was merged into Safe. Run Safe Windows Release manually to build the installer."

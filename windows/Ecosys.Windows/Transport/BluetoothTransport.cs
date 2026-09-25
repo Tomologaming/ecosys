@@ -1,11 +1,12 @@
 using Ecosys.Windows.Protocol;
-using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Devices.Enumeration;
 using Windows.Networking.Sockets;
 using Windows.Storage.Streams;
 
 namespace Ecosys.Windows.Transport;
+
+public sealed record BluetoothDeviceInfo(string Id, string Name);
 
 public sealed class BluetoothTransport : ITransport
 {
@@ -15,49 +16,77 @@ public sealed class BluetoothTransport : ITransport
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? MessageReceived;
+    public event EventHandler<IReadOnlyList<BluetoothDeviceInfo>>? DevicesChanged;
+
+    public async Task<IReadOnlyList<BluetoothDeviceInfo>> ScanAsync(CancellationToken cancellationToken = default)
+    {
+        running = true;
+        StatusChanged?.Invoke(this, "Bluetooth-Geräte werden gesucht …");
+
+        var selector = RfcommDeviceService.GetDeviceSelector(
+            RfcommServiceId.FromUuid(BluetoothTransportUuids.ServiceUuid));
+
+        var devices = await DeviceInformation.FindAllAsync(selector);
+        var result = devices
+            .Select(d => new BluetoothDeviceInfo(d.Id, string.IsNullOrWhiteSpace(d.Name) ? "Unbekanntes Gerät" : d.Name))
+            .ToList();
+
+        cancellationToken.ThrowIfCancellationRequested();
+        DevicesChanged?.Invoke(this, result);
+        StatusChanged?.Invoke(this, result.Count == 0
+            ? "Keine Ecosys-Geräte gefunden"
+            : $"{result.Count} Ecosys-Gerät{(result.Count == 1 ? "" : "e")} gefunden");
+
+        return result;
+    }
+
+    public async Task ConnectAsync(BluetoothDeviceInfo deviceInfo, CancellationToken cancellationToken = default)
+    {
+        await DisconnectAsync();
+
+        StatusChanged?.Invoke(this, $"Verbinde mit {deviceInfo.Name} …");
+
+        var service = await RfcommDeviceService.FromIdAsync(deviceInfo.Id);
+        if (service is null)
+            throw new InvalidOperationException("Der Bluetooth-Dienst ist nicht mehr verfügbar.");
+
+        socket = new StreamSocket();
+        await socket.ConnectAsync(service.ConnectionHostName, service.ConnectionServiceName)
+            .AsTask(cancellationToken);
+
+        writer = new DataWriter(socket.OutputStream);
+        StatusChanged?.Invoke(this, $"Verbunden mit {deviceInfo.Name}");
+
+        _ = ReadLoopAsync(socket.InputStream);
+        await SendAsync(
+            EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows").ToJsonString(),
+            cancellationToken);
+    }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        running = true;
-        StatusChanged?.Invoke(this, "Searching for nearby Bluetooth devices…");
-
-        var devices = await DeviceInformation.FindAllAsync(BluetoothDevice.GetDeviceSelector());
-        foreach (var info in devices)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                var device = await BluetoothDevice.FromIdAsync(info.Id);
-                if (device is null) continue;
-
-                var services = await device.GetRfcommServicesForIdAsync(
-                    RfcommServiceId.FromUuid(BluetoothTransportUuids.ServiceUuid),
-                    BluetoothCacheMode.Uncached);
-                var service = services.Services.FirstOrDefault();
-                if (service is null) continue;
-
-                socket = new StreamSocket();
-                await socket.ConnectAsync(service.ConnectionHostName, service.ConnectionServiceName);
-                writer = new DataWriter(socket.OutputStream);
-                StatusChanged?.Invoke(this, $"Connected to {info.Name}");
-                _ = ReadLoopAsync(socket.InputStream);
-                await SendAsync(EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows").ToJsonString(), cancellationToken);
-                return;
-            }
-            catch (Exception ex)
-            {
-                StatusChanged?.Invoke(this, $"Bluetooth device skipped: {ex.Message}");
-            }
-        }
-
-        StatusChanged?.Invoke(this, "No Ecosys Bluetooth service found.");
+        var devices = await ScanAsync(cancellationToken);
+        if (devices.Count > 0)
+            await ConnectAsync(devices[0], cancellationToken);
     }
 
     public async Task SendAsync(string message, CancellationToken cancellationToken = default)
     {
-        if (writer is null) return;
+        if (writer is null)
+            throw new InvalidOperationException("Keine Bluetooth-Verbindung aktiv.");
+
         writer.WriteString(message + "\n");
         await writer.StoreAsync().AsTask(cancellationToken);
+    }
+
+    public async Task DisconnectAsync()
+    {
+        running = false;
+        writer?.Dispose();
+        writer = null;
+        socket?.Dispose();
+        socket = null;
+        await Task.CompletedTask;
     }
 
     private async Task ReadLoopAsync(IInputStream input)
@@ -85,7 +114,7 @@ public sealed class BluetoothTransport : ITransport
         }
         catch (Exception ex)
         {
-            if (running) StatusChanged?.Invoke(this, $"Bluetooth read ended: {ex.Message}");
+            if (running) StatusChanged?.Invoke(this, $"Bluetooth-Verbindung beendet: {ex.Message}");
         }
     }
 
