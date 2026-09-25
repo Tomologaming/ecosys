@@ -36,16 +36,16 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: Prepare app bundle for Sideloadly
+      - name: Prepare clean unsigned app bundle for Sideloadly
         shell: bash
         run: |
           set -euo pipefail
           APP="build/DerivedData/Build/Products/Release-iphoneos/Ecosys.app"
           test -d "$APP"
-          # Give the app a valid ad-hoc signature so the IPA has a code signature
-          # that Sideloadly can replace with the user's Apple signing identity.
-          codesign --force --deep --sign - "$APP"
-          codesign --verify --deep --strict "$APP"
+          # Sideloadly must apply the device-specific Apple signature itself.
+          # Remove any stale signatures from nested code objects as well.
+          find "$APP" -type d -name "_CodeSignature" -prune -exec rm -rf {} +
+          find "$APP" -type f \( -name "*.dylib" -o -name "*.framework" \) -exec codesign --remove-signature {} + 2>/dev/null || true
 
       - name: Package IPA for Sideloadly
         shell: bash
