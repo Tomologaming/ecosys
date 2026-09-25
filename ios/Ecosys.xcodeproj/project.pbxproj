@@ -69,7 +69,7 @@
  CODE_SIGN_STYLE = Manual;
  CODE_SIGN_IDENTITY = "";
  DEVELOPMENT_TEAM = "";
- } name = Debug; };
+ }; name = Debug; };
  900000000000000000000002 = {isa = XCBuildConfiguration; buildSettings = {
  PRODUCT_BUNDLE_IDENTIFIER = com.tomologaming.ecosys;
  PRODUCT_NAME = Ecosys;
@@ -81,7 +81,7 @@
  CODE_SIGN_STYLE = Manual;
  CODE_SIGN_IDENTITY = "";
  DEVELOPMENT_TEAM = "";
- } name = Release; };
+ }; name = Release; };
 
 /* XCConfigurationList */
  700000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (900000000000000000000001,900000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
