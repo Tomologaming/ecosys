@@ -4,8 +4,32 @@ using Windows.Devices.Bluetooth;
 using Windows.Devices.Radios;
 using Ecosys.Windows.Transport;
 
-ApplicationConfiguration.Initialize();
-Application.Run(new EcosysForm());
+try
+{
+    ApplicationConfiguration.Initialize();
+    Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+    Application.ThreadException += (_, e) => StartupDiagnostics.Log("UI thread exception", e.Exception);
+    AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+    {
+        if (e.ExceptionObject is Exception ex)
+            StartupDiagnostics.Log("Unhandled application exception", ex);
+    };
+    Application.Run(new EcosysForm());
+}
+catch (Exception ex)
+{
+    StartupDiagnostics.Log("Startup exception", ex);
+    if (!string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase))
+    {
+        MessageBox.Show(
+            "Ecosys konnte nicht gestartet werden.\n\n" +
+            "Details wurden unter %LOCALAPPDATA%\\Ecosys\\startup.log gespeichert.",
+            "Ecosys Startfehler",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
+    }
+    Environment.ExitCode = 1;
+}
 
 sealed class EcosysForm : Form
 {
@@ -490,5 +514,26 @@ static class GraphicsExtensions
         path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
         path.CloseFigure();
         graphics.DrawPath(pen, path);
+    }
+}
+\n\nstatic class StartupDiagnostics
+{
+    public static void Log(string source, Exception exception)
+    {
+        try
+        {
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Ecosys");
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "startup.log");
+            File.AppendAllText(
+                path,
+                $"[{DateTime.Now:O}] {source}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Never allow diagnostics to become another startup failure.
+        }
     }
 }
