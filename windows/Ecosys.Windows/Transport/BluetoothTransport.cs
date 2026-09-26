@@ -50,9 +50,25 @@ public sealed class BluetoothTransport : ITransport
         if (service is null)
             throw new InvalidOperationException("Der Bluetooth-Dienst ist nicht mehr verfügbar.");
 
+        var access = await service.RequestAccessAsync();
+        if (access != DeviceAccessStatus.Allowed)
+            throw new UnauthorizedAccessException(
+                $"Windows hat den Zugriff auf den Bluetooth-Dienst nicht freigegeben ({access}).");
+
         socket = new StreamSocket();
-        await socket.ConnectAsync(service.ConnectionHostName, service.ConnectionServiceName)
-            .AsTask(cancellationToken);
+        using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        connectCts.CancelAfter(TimeSpan.FromSeconds(15));
+        try
+        {
+            await socket.ConnectAsync(service.ConnectionHostName, service.ConnectionServiceName)
+                .AsTask(connectCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            socket.Dispose();
+            socket = null;
+            throw new TimeoutException("Die Bluetooth-Verbindung konnte innerhalb von 15 Sekunden nicht aufgebaut werden.");
+        }
 
         writer = new DataWriter(socket.OutputStream);
         StatusChanged?.Invoke(this, $"Verbunden mit {deviceInfo.Name}");
