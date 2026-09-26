@@ -27,10 +27,15 @@ final class BluetoothManager: NSObject, ObservableObject {
     private var central: CBCentralManager!
     private var connected: CBPeripheral?
     private var txCharacteristic: CBCharacteristic?
+    private var peripheralManager: CBPeripheralManager!
+    private var peripheralService: CBMutableService?
+    private var peripheralTxCharacteristic: CBMutableCharacteristic?
+    private var peripheralRxCharacteristic: CBMutableCharacteristic?
 
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: .main)
+        peripheralManager = CBPeripheralManager(delegate: self, queue: .main)
     }
 
     func scan() {
@@ -138,5 +143,78 @@ extension BluetoothManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard let data = characteristic.value else { return }
         lastMessage = String(data: data, encoding: .utf8) ?? "Nachricht empfangen"
+    }
+}
+
+
+extension BluetoothManager: CBPeripheralManagerDelegate {
+    func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        if peripheral.state == .poweredOn {
+            publishPeripheralService()
+            startAdvertisingIfReady()
+        } else if peripheral.state == .unauthorized {
+            status = "Bluetooth-Berechtigung fehlt"
+        }
+    }
+
+    private func publishPeripheralService() {
+        guard peripheralManager.state == .poweredOn else { return }
+        if peripheralService != nil { return }
+
+        let tx = CBMutableCharacteristic(
+            type: Self.txUUID,
+            properties: [.write, .writeWithoutResponse],
+            value: nil,
+            permissions: [.writeable]
+        )
+        let rx = CBMutableCharacteristic(
+            type: Self.rxUUID,
+            properties: [.notify, .read],
+            value: nil,
+            permissions: [.readable]
+        )
+        let service = CBMutableService(type: Self.serviceUUID, primary: true)
+        service.characteristics = [tx, rx]
+        peripheralTxCharacteristic = tx
+        peripheralRxCharacteristic = rx
+        peripheralService = service
+        peripheralManager.add(service)
+    }
+
+    private func startAdvertisingIfReady() {
+        guard peripheralManager.state == .poweredOn else { return }
+        if peripheralManager.isAdvertising { return }
+        publishPeripheralService()
+        peripheralManager.startAdvertising([
+            CBAdvertisementDataServiceUUIDsKey: [Self.serviceUUID],
+            CBAdvertisementDataLocalNameKey: UIDevice.current.name
+        ])
+    }
+
+    func peripheralManager(_ peripheral: CBPeripheralManager,
+                           didReceiveWrite requests: [CBATTRequest]) {
+        for request in requests {
+            guard request.characteristic.uuid == Self.txUUID,
+                  let value = request.value else {
+                peripheral.respond(to: request, withResult: .requestNotSupported)
+                continue
+            }
+            lastMessage = String(data: value, encoding: .utf8) ?? "Nachricht empfangen"
+            peripheral.respond(to: request, withResult: .success)
+        }
+    }
+
+    func peripheralManager(_ peripheral: CBPeripheralManager,
+                           central: CBCentral,
+                           didSubscribeTo characteristic: CBCharacteristic) {
+        status = "Windows-Gerät verbunden"
+    }
+
+    func peripheralManager(_ peripheral: CBPeripheralManager,
+                           central: CBCentral,
+                           didUnsubscribeFrom characteristic: CBCharacteristic) {
+        if connected == nil {
+            status = "Bluetooth bereit"
+        }
     }
 }
