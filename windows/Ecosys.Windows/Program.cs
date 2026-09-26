@@ -382,7 +382,7 @@ sealed class RoundPanel : Panel
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                   ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        BackColor = Color.Transparent;
+        BackColor = Color.White;
     }
 
     protected override void OnPaintBackground(PaintEventArgs e)
