@@ -59,7 +59,8 @@ sealed class EcosysForm : Form
         var hero = new GradientPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(26) };
         root.Controls.Add(hero);
 
-        var appLogo = new PictureBox { Location = new Point(26, 28), Size = new Size(64, 64), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Image = IconToBitmap(Icon) };\n        hero.Controls.Add(appLogo);
+        var appLogo = new PictureBox { Location = new Point(26, 28), Size = new Size(64, 64), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Image = IconToBitmap(Icon) };
+        hero.Controls.Add(appLogo);
         hero.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI Semibold", 22), ForeColor = Color.White, Location = new Point(106, 25) });
         hero.Controls.Add(new Label { Text = "PRIVATE. DIRECT. YOURS.", AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(185, 222, 205), Location = new Point(108, 61) });
 
@@ -119,7 +120,8 @@ sealed class EcosysForm : Form
         content.Controls.Add(hint);
         hint.Controls.Add(new Label
         {
-            Text = "Tipp: Beide Geräte müssen Bluetooth aktiviert haben.\nBei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
+            Text = "Tipp: Beide Geräte müssen Bluetooth aktiviert haben.
+Bei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
             AutoSize = false,
             Size = new Size(588, 46),
             Location = new Point(18, 8),
@@ -303,4 +305,13 @@ sealed class EcosysForm : Form
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wp, int lp);
 
 
-    static Icon CreateAppIcon() => LoadAppIcon();\n\n    static Icon LoadAppIcon()\n    {\n        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ecosys.ico");\n        return File.Exists(path) ? new Icon(path) : SystemIcons.Application;\n    }\n\n    static Bitmap IconToBitmap(Icon? icon) => icon?.ToBitmap() ?? SystemIcons.Application.ToBitmap();\n
+    static Icon CreateAppIcon() => LoadAppIcon();
+
+    static Icon LoadAppIcon()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ecosys.ico");
+        return File.Exists(path) ? new Icon(path) : SystemIcons.Application;
+    }
+
+    static Bitmap IconToBitmap(Icon? icon) => icon?.ToBitmap() ?? SystemIcons.Application.ToBitmap();
+
