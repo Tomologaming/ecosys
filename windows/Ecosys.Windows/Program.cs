@@ -333,7 +333,14 @@ sealed class EcosysForm : Form
     static Icon LoadAppIcon()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ecosys.ico");
-        return File.Exists(path) ? new Icon(path) : SystemIcons.Application;
+        try
+        {
+            return File.Exists(path) ? new Icon(path) : SystemIcons.Application;
+        }
+        catch
+        {
+            return SystemIcons.Application;
+        }
     }
 
     static Bitmap IconToBitmap(Icon? icon) => icon?.ToBitmap() ?? SystemIcons.Application.ToBitmap();
