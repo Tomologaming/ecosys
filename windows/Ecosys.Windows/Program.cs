@@ -516,7 +516,9 @@ static class GraphicsExtensions
         graphics.DrawPath(pen, path);
     }
 }
-\n\nstatic class StartupDiagnostics
+
+
+static class StartupDiagnostics
 {
     public static void Log(string source, Exception exception)
     {
