@@ -52,7 +52,7 @@ jobs:
         run: '& "$env:ISCC_PATH" installer/Ecosys.iss'
       - name: Build offline installer
         shell: pwsh
-        run: '& "$env:ISCC_PATH" /DOfflineMode /DOutputBaseFilename=Ecosys-Offline-Setup installer/Ecosys.iss'
+        run: '& "$env:ISCC_PATH" /DOfflineMode /F"Ecosys-Offline-Setup" installer/Ecosys.iss'
       - name: Create GitHub release
         shell: pwsh
         env:

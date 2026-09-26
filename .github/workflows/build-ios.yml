@@ -23,12 +23,13 @@ jobs:
           test -s "$ICON"
           # The repository icon is the master artwork; Xcode requires the app-icon
           # slot to contain an exact 1024x1024 PNG.
-          sips -z 1024 1024 "$ICON" --out "$TARGET" >/dev/null
+          sips --resampleHeightWidth 1024 1024 "$ICON" --out "$TARGET" >/dev/null
           test -s "$TARGET"
           WIDTH="$(sips -g pixelWidth "$TARGET" | awk '/pixelWidth/ {print $2}')"
           HEIGHT="$(sips -g pixelHeight "$TARGET" | awk '/pixelHeight/ {print $2}')"
           test "$WIDTH" = "1024"
           test "$HEIGHT" = "1024"
+          file "$TARGET"
 
       - name: Build iOS app for Sideloadly
         run: |
