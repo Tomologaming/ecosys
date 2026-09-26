@@ -5,6 +5,7 @@
 #define SafeAssetUrl "https://github.com/Tomologaming/ecosys/releases/latest/download/Ecosys-windows-safe.zip"
 
 [Setup]
+ArchiveExtraction=full
 AppId={{B7E2D4A8-8C1B-4D0D-9B3C-ECOSYS000001}
 AppName={#AppName}
 AppVersion={#AppVersion}
