@@ -31,6 +31,21 @@ jobs:
       - name: Verify .NET SDK
         run: dotnet --version
 
+      - name: Validate Windows project sources
+        shell: pwsh
+        run: |
+          $files = @(
+            "windows/Ecosys.Windows/Ecosys.Windows.csproj",
+            "windows/Ecosys.Windows/Program.cs",
+            "windows/Ecosys.Windows/Transport/BluetoothTransport.cs"
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) { throw "Required source file is missing: $file" }
+            $text = Get-Content $file -Raw
+            if ($text.Contains("\\n")) { throw "Literal \\n sequence found in $file. Refusing to publish a broken build." }
+          }
+          dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --no-restore
+
       - name: Publish self-contained Windows app
         run: >
           dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj
