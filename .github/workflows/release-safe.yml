@@ -35,11 +35,11 @@ jobs:
 
       - name: Restore Windows project
         shell: pwsh
-        run: dotnet restore windows/Ecosys.Windows/Ecosys.Windows.csproj
+        run: dotnet restore windows/Ecosys.Windows/Ecosys.Windows.csproj --runtime win-x64
 
       - name: Build Windows project
         shell: pwsh
-        run: dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --no-restore
+        run: dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --runtime win-x64 --no-restore
 
       - name: Publish self-contained Windows app
         shell: pwsh
