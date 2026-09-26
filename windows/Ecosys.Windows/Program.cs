@@ -27,15 +27,15 @@ sealed class EcosysForm : Form
     public EcosysForm()
     {
         Text = "Ecosys";
-        FormBorderStyle = FormBorderStyle.None;
+        FormBorderStyle = FormBorderStyle.Sizable;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(620, 820);
-        MinimumSize = new Size(620, 760);
+        ClientSize = new Size(900, 820);
+        MinimumSize = new Size(820, 760);
         BackColor = Page;
         DoubleBuffered = true;
         Icon = CreateAppIcon();
 
-        var root = new Panel { Dock = DockStyle.Fill, BackColor = Page, Padding = new Padding(34, 24, 34, 28) };
+        var root = new Panel { Dock = DockStyle.Fill, BackColor = Page, Padding = new Padding(32, 22, 32, 26) };
         Controls.Add(root);
 
         var top = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Page };
@@ -56,14 +56,14 @@ sealed class EcosysForm : Form
         AddTopButton(top, "□", 592, () => WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized);
         AddTopButton(top, "×", 636, Close);
 
-        var hero = new GradientPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(26) };
+        var hero = new GradientPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(28) };
         root.Controls.Add(hero);
 
-        hero.Controls.Add(new EcosysLogo { Location = new Point(24, 28), Size = new Size(58, 58), DrawRing = true });
-        hero.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI Semibold", 22), ForeColor = Color.White, Location = new Point(98, 25) });
-        hero.Controls.Add(new Label { Text = "PRIVATE. DIRECT. YOURS.", AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(185, 222, 205), Location = new Point(100, 61) });
+        var appLogo = new PictureBox { Location = new Point(26, 28), Size = new Size(64, 64), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Image = IconToBitmap(Icon) };\n        hero.Controls.Add(appLogo);
+        hero.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI Semibold", 22), ForeColor = Color.White, Location = new Point(106, 25) });
+        hero.Controls.Add(new Label { Text = "PRIVATE. DIRECT. YOURS.", AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(185, 222, 205), Location = new Point(108, 61) });
 
-        var btCard = new RoundPanel { Location = new Point(24, 103), Size = new Size(574, 48), Fill = Color.FromArgb(31, 70, 91), Radius = 12 };
+        var btCard = new RoundPanel { Location = new Point(24, 103), Size = new Size(800, 48), Fill = Color.FromArgb(31, 70, 91), Radius = 12 };
         hero.Controls.Add(btCard);
         btCard.Controls.Add(new DotControl { Location = new Point(16, 19), Size = new Size(9, 9), Fill = Color.FromArgb(91, 220, 139) });
         statusLabel.Text = "Bluetooth wird geprüft …";
@@ -100,14 +100,14 @@ sealed class EcosysForm : Form
         content.Controls.Add(deviceCountLabel);
 
         scanButton.Text = "Suchen";
-        scanButton.Size = new Size(100, 34);
-        scanButton.Location = new Point(520, 134);
+        scanButton.Size = new Size(102, 34);
+        scanButton.Location = new Point(730, 134);
         scanButton.Click += async (_, _) => await ScanAsync();
         StyleButton(scanButton, Blue, Color.White);
         content.Controls.Add(scanButton);
 
         devicesPanel.Location = new Point(0, 180);
-        devicesPanel.Size = new Size(632, 230);
+        devicesPanel.Size = new Size(832, 230);
         devicesPanel.FlowDirection = FlowDirection.TopDown;
         devicesPanel.WrapContents = false;
         devicesPanel.AutoScroll = true;
@@ -115,7 +115,7 @@ sealed class EcosysForm : Form
         devicesPanel.Padding = new Padding(0);
         content.Controls.Add(devicesPanel);
 
-        var hint = new RoundPanel { Location = new Point(0, 422), Size = new Size(632, 62), Fill = Color.FromArgb(232, 239, 243), Radius = 12 };
+        var hint = new RoundPanel { Location = new Point(0, 422), Size = new Size(832, 62), Fill = Color.FromArgb(232, 239, 243), Radius = 12 };
         content.Controls.Add(hint);
         hint.Controls.Add(new Label
         {
@@ -136,7 +136,7 @@ sealed class EcosysForm : Form
         content.Controls.Add(connectionLabel);
 
         sendHelloButton.Text = "Hello senden";
-        sendHelloButton.Size = new Size(632, 44);
+        sendHelloButton.Size = new Size(832, 44);
         sendHelloButton.Location = new Point(0, 568);
         sendHelloButton.Click += async (_, _) => await SendHelloAsync();
         StyleButton(sendHelloButton, Green, Color.White);
@@ -148,7 +148,7 @@ sealed class EcosysForm : Form
             Text = "Direkt zwischen deinen Geräten · keine Cloud · keine Server",
             AutoSize = false,
             TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(632, 30),
+            Size = new Size(832, 30),
             Location = new Point(0, 630),
             Font = new Font("Segoe UI", 8),
             ForeColor = Color.FromArgb(145, 158, 165)
@@ -303,122 +303,4 @@ sealed class EcosysForm : Form
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wp, int lp);
 
 
-    static Icon CreateAppIcon()
-    {
-        using var bitmap = new Bitmap(64, 64);
-        using (var graphics = Graphics.FromImage(bitmap))
-        {
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.Clear(Color.Transparent);
-            using var blue = new SolidBrush(Blue);
-            graphics.FillEllipse(blue, 13, 13, 38, 38);
-            using var green = new SolidBrush(Color.FromArgb(63, 174, 116));
-            graphics.FillPolygon(green, new[]
-            {
-                new PointF(19, 26), new PointF(31, 20), new PointF(32, 29), new PointF(23, 34)
-            });
-        }
-        return Icon.FromHandle(bitmap.GetHicon());
-    }
-
-    sealed class GradientPanel : Panel
-    {
-        protected override void OnPaintBackground(PaintEventArgs e)
-        {
-            var rect = ClientRectangle;
-            if (rect.Width <= 0 || rect.Height <= 0) return;
-            using var brush = new LinearGradientBrush(rect, Color.FromArgb(18, 58, 94), Color.FromArgb(28, 110, 79), 25);
-            e.Graphics.FillRectangle(brush, ClientRectangle);
-        }
-    }
-
-    sealed class RoundPanel : Panel
-    {
-        public Color Fill { get; set; } = Color.White;
-        public int Radius { get; set; } = 12;
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var path = CreatePath();
-            using var brush = new SolidBrush(Fill);
-            e.Graphics.FillPath(brush, path);
-            using var pen = new Pen(Color.FromArgb(226, 232, 235));
-            e.Graphics.DrawPath(pen, path);
-        }
-
-        GraphicsPath CreatePath()
-        {
-            var p = new GraphicsPath();
-            var d = Radius * 2;
-            p.AddArc(0, 0, d, d, 180, 90);
-            p.AddArc(Width - d, 0, d, d, 270, 90);
-            p.AddArc(Width - d, Height - d, d, d, 0, 90);
-            p.AddArc(0, Height - d, d, d, 90, 90);
-            p.CloseFigure();
-            return p;
-        }
-    }
-
-    sealed class DotControl : Control
-    {
-        public Color Fill { get; set; } = Color.LimeGreen;
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var brush = new SolidBrush(Fill);
-            e.Graphics.FillEllipse(brush, 0, 0, Width - 1, Height - 1);
-        }
-    }
-
-    sealed class EcosysLogo : Control
-    {
-        public bool DrawRing { get; set; }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            var r = Math.Min(Width, Height);
-            var cx = Width / 2f;
-            var cy = Height / 2f;
-
-            if (DrawRing)
-            {
-                using var ring = new Pen(Color.FromArgb(100, 255, 255, 255), 2) { DashPattern = new[] { 1f, 3f } };
-                e.Graphics.DrawEllipse(ring, 2, 2, r - 4, r - 4);
-            }
-
-            using var blue = new SolidBrush(Blue);
-            e.Graphics.FillEllipse(blue, cx - r * .32f, cy - r * .32f, r * .64f, r * .64f);
-            using var green = new SolidBrush(Color.FromArgb(63, 174, 116));
-            e.Graphics.FillPolygon(green, new[] { new PointF(cx-r*.20f,cy-r*.10f), new PointF(cx-r*.02f,cy-r*.20f), new PointF(cx,cy-r*.04f), new PointF(cx-r*.15f,cy+r*.02f) });
-        }
-    }
-
-    sealed class DeviceGlyph : Control
-    {
-        public string Kind { get; set; } = "pc";
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(Ink, 2);
-
-            if (Kind == "phone")
-            {
-                using var path = new GraphicsPath();
-                path.AddArc(10, 4, 8, 8, 180, 90);
-                path.AddArc(20, 4, 8, 8, 270, 90);
-                path.AddArc(20, 26, 8, 8, 0, 90);
-                path.AddArc(10, 26, 8, 8, 90, 90);
-                path.CloseFigure();
-                e.Graphics.DrawPath(pen, path);
-            }
-            else
-            {
-                e.Graphics.DrawRectangle(pen, 7, 6, 24, 16);
-                e.Graphics.DrawLine(pen, 12, 27, 26, 27);
-            }
-        }
-    }
-}
+    static Icon CreateAppIcon() => LoadAppIcon();\n\n    static Icon LoadAppIcon()\n    {\n        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ecosys.ico");\n        return File.Exists(path) ? new Icon(path) : SystemIcons.Application;\n    }\n\n    static Bitmap IconToBitmap(Icon? icon) => icon?.ToBitmap() ?? SystemIcons.Application.ToBitmap();\n
