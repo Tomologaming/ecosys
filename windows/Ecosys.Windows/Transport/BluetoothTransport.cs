@@ -125,7 +125,8 @@ public sealed class BluetoothTransport : ITransport
             throw new UnauthorizedAccessException(
                 $"Windows hat den Zugriff auf den BLE-Dienst nicht freigegeben ({access}).");
 
-        var characteristics = await gattService.GetCharacteristicsAsync();
+        var characteristicsResult = await gattService.GetCharacteristicsAsync();
+        var characteristics = characteristicsResult.Characteristics;
         gattTx = characteristics.FirstOrDefault(c => c.Uuid == BluetoothTransportUuids.BleTxUuid);
         gattRx = characteristics.FirstOrDefault(c => c.Uuid == BluetoothTransportUuids.BleRxUuid);
 
