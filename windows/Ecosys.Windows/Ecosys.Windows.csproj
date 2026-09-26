@@ -8,5 +8,5 @@
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU</Platforms>
     <UseWindowsForms>true</UseWindowsForms>
-  </PropertyGroup>
-</Project>
+      <ApplicationIcon>Assets\ecosys.ico</ApplicationIcon>\n  </PropertyGroup>
+  <ItemGroup>\n    <Content Update="Assets\ecosys.ico">\n      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>\n      <CopyToPublishDirectory>Always</CopyToPublishDirectory>\n    </Content>\n  </ItemGroup>\n</Project>
