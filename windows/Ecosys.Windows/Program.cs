@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Drawing.Drawing2D;
-using Windows.Devices.Bluetooth;
 using Windows.Devices.Radios;
 using Ecosys.Windows.Transport;
 
@@ -35,165 +33,222 @@ sealed class EcosysForm : Form
 {
     readonly BluetoothTransport transport = new();
     readonly FlowLayoutPanel devicesPanel = new();
-    readonly Label statusLabel = new();
+    readonly Label bluetoothStatusLabel = new();
     readonly Label deviceCountLabel = new();
     readonly Button scanButton = new();
     readonly Button sendHelloButton = new();
     readonly Label connectionLabel = new();
-    readonly Label localNameLabel = new();
+    readonly Label messageLabel = new();
 
-    static readonly Color Navy = Color.FromArgb(18, 58, 94);
-    static readonly Color Green = Color.FromArgb(45, 143, 92);
-    static readonly Color Blue = Color.FromArgb(47, 111, 176);
-    static readonly Color Ink = Color.FromArgb(22, 50, 74);
-    static readonly Color Muted = Color.FromArgb(103, 117, 125);
-    static readonly Color Page = Color.FromArgb(238, 242, 244);
-    static readonly Color Card = Color.FromArgb(247, 249, 250);
+    static readonly Color Page = Color.FromArgb(245, 247, 249);
+    static readonly Color Ink = Color.FromArgb(25, 35, 45);
+    static readonly Color Muted = Color.FromArgb(90, 105, 115);
+    static readonly Color Blue = Color.RoyalBlue;
+    static readonly Color Green = Color.FromArgb(35, 145, 85);
 
     public EcosysForm()
     {
         Text = "Ecosys";
-        FormBorderStyle = FormBorderStyle.Sizable;
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
-        AutoScaleDimensions = new SizeF(96F, 96F);
         Font = new Font("Segoe UI", 10F);
-        ClientSize = new Size(1000, 860);
-        MinimumSize = new Size(900, 760);
+        ClientSize = new Size(900, 680);
+        MinimumSize = new Size(760, 600);
         BackColor = Page;
-        DoubleBuffered = true;
-        Icon = CreateAppIcon();
+        Icon = LoadAppIcon();
 
-        var root = new Panel { Dock = DockStyle.Fill, BackColor = Page, Padding = new Padding(32, 22, 32, 26) };
+        var root = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Page,
+            Padding = new Padding(24),
+            ColumnCount = 1,
+            RowCount = 5
+        };
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         Controls.Add(root);
 
-        var top = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Page };
-        top.MouseDown += DragWindow;
-        root.Controls.Add(top);
+        var header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 2,
+            RowCount = 2,
+            Margin = new Padding(0, 0, 0, 18)
+        };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
         var title = new Label
         {
             Text = "Ecosys",
             AutoSize = true,
-            Font = new Font("Segoe UI Semibold", 10),
+            Font = new Font("Segoe UI Semibold", 24F),
             ForeColor = Ink,
-            Location = new Point(0, 9)
+            Margin = new Padding(0, 0, 0, 2)
         };
-        top.Controls.Add(title);
+        header.Controls.Add(title, 0, 0);
 
-        AddTopButton(top, "—", 548, () => WindowState = FormWindowState.Minimized);
-        AddTopButton(top, "□", 592, () => WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized);
-        AddTopButton(top, "×", 636, Close);
+        var subtitle = new Label
+        {
+            Text = "Direkte Bluetooth-Verbindung zwischen deinen Geräten",
+            AutoSize = true,
+            Font = new Font("Segoe UI", 10F),
+            ForeColor = Muted,
+            Margin = new Padding(0, 0, 0, 0)
+        };
+        header.Controls.Add(subtitle, 0, 1);
 
-        var hero = new GradientPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(26) };
-        root.Controls.Add(hero);
+        var settingsButton = new Button
+        {
+            Text = "Bluetooth-Einstellungen",
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Height = 38,
+            Margin = new Padding(12, 3, 0, 0)
+        };
+        StyleSecondaryButton(settingsButton);
+        settingsButton.Click += (_, _) => OpenSettings("ms-settings:bluetooth");
+        header.Controls.Add(settingsButton, 1, 0);
+        header.SetRowSpan(settingsButton, 2);
+        root.Controls.Add(header, 0, 0);
 
-        var appLogo = new PictureBox { Location = new Point(26, 28), Size = new Size(64, 64), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Image = IconToBitmap(Icon) };
-        hero.Controls.Add(appLogo);
-        hero.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI Semibold", 22), ForeColor = Color.White, Location = new Point(106, 25) });
-        hero.Controls.Add(new Label { Text = "PRIVATE. DIRECT. YOURS.", AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(185, 222, 205), Location = new Point(108, 61) });
+        var statusBox = new GroupBox
+        {
+            Text = "Bluetooth",
+            Dock = DockStyle.Top,
+            Height = 76,
+            Padding = new Padding(14, 10, 14, 8),
+            Margin = new Padding(0, 0, 0, 14),
+            ForeColor = Ink
+        };
+        bluetoothStatusLabel.Text = "Bluetooth wird geprüft …";
+        bluetoothStatusLabel.Dock = DockStyle.Fill;
+        bluetoothStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        bluetoothStatusLabel.Font = new Font("Segoe UI Semibold", 10F);
+        bluetoothStatusLabel.ForeColor = Ink;
+        statusBox.Controls.Add(bluetoothStatusLabel);
+        root.Controls.Add(statusBox, 0, 1);
 
-        var btCard = new RoundPanel { Location = new Point(24, 103), Size = new Size(800, 48), Fill = Color.FromArgb(31, 70, 91), Radius = 12 };
-        hero.Controls.Add(btCard);
-        btCard.Controls.Add(new DotControl { Location = new Point(16, 19), Size = new Size(9, 9), Fill = Color.FromArgb(91, 220, 139) });
-        statusLabel.Text = "Bluetooth wird geprüft …";
-        statusLabel.AutoSize = true;
-        statusLabel.Font = new Font("Segoe UI Semibold", 9);
-        statusLabel.ForeColor = Color.White;
-        statusLabel.Location = new Point(35, 14);
-        btCard.Controls.Add(statusLabel);
+        var devicesBox = new GroupBox
+        {
+            Text = "Ecosys-Geräte in der Nähe",
+            Dock = DockStyle.Fill,
+            Padding = new Padding(12, 24, 12, 12),
+            Margin = new Padding(0, 0, 0, 14),
+            ForeColor = Ink
+        };
 
-        var content = new Panel { Dock = DockStyle.Fill, BackColor = Page, AutoScroll = true, Padding = new Padding(0, 20, 0, 0) };
-        root.Controls.Add(content);
+        var devicesLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
+        };
+        devicesLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        devicesLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        devicesLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-        AddSection(content, "DIESER PC", 0, 0);
-        var local = MakeCard(content, 0, 28, 832, 74);
-        local.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        local.Controls.Add(new DeviceGlyph { Location = new Point(14, 16), Size = new Size(38, 38), Kind = "pc" });
-        localNameLabel.Text = Environment.MachineName;
-        localNameLabel.AutoSize = true;
-        localNameLabel.Font = new Font("Segoe UI Semibold", 10);
-        localNameLabel.ForeColor = Ink;
-        localNameLabel.Location = new Point(66, 14);
-        local.Controls.Add(localNameLabel);
-        local.Controls.Add(new Label { Text = "Windows · Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, Location = new Point(66, 40) });
+        var searchRow = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0, 0, 0, 10)
+        };
+        searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Ink, 630, 20, 184, 34);
-        settings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        settings.Click += (_, _) => OpenSettings("ms-settings:bluetooth");
-        local.Controls.Add(settings);
-
-        AddSection(content, "ECOSYS-GERÄTE IN DER NÄHE", 0, 116);
         deviceCountLabel.Text = "Noch nicht gesucht";
         deviceCountLabel.AutoSize = true;
-        deviceCountLabel.Font = new Font("Segoe UI", 8.5f);
+        deviceCountLabel.Anchor = AnchorStyles.Left;
+        deviceCountLabel.Font = new Font("Segoe UI", 9F);
         deviceCountLabel.ForeColor = Muted;
-        deviceCountLabel.Location = new Point(0, 143);
-        content.Controls.Add(deviceCountLabel);
+        searchRow.Controls.Add(deviceCountLabel, 0, 0);
 
         scanButton.Text = "Suchen";
-        scanButton.Size = new Size(100, 34);
-        scanButton.Location = new Point(730, 134);
-        scanButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        scanButton.Size = new Size(110, 40);
+        scanButton.Anchor = AnchorStyles.Right;
+        scanButton.Margin = new Padding(8, 0, 0, 0);
+        StylePrimaryButton(scanButton);
         scanButton.Click += async (_, _) => await ScanAsync();
-        StyleButton(scanButton, Blue, Color.White);
-        content.Controls.Add(scanButton);
+        searchRow.Controls.Add(scanButton, 1, 0);
 
-        devicesPanel.Location = new Point(0, 180);
-        devicesPanel.Size = new Size(832, 230);
-        devicesPanel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        devicesLayout.Controls.Add(searchRow, 0, 0);
+
         devicesPanel.FlowDirection = FlowDirection.TopDown;
         devicesPanel.WrapContents = false;
         devicesPanel.AutoScroll = true;
-        devicesPanel.BackColor = Page;
-        devicesPanel.Padding = new Padding(0);
-        content.Controls.Add(devicesPanel);
+        devicesPanel.Dock = DockStyle.Fill;
+        devicesPanel.BackColor = Color.White;
+        devicesPanel.BorderStyle = BorderStyle.FixedSingle;
+        devicesPanel.Padding = new Padding(8);
+        devicesPanel.Resize += (_, _) => ResizeDeviceRows();
+        devicesLayout.Controls.Add(devicesPanel, 0, 1);
 
-        var hint = new RoundPanel { Location = new Point(0, 422), Size = new Size(832, 62), Fill = Color.FromArgb(232, 239, 243), Radius = 12 };
-        hint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        content.Controls.Add(hint);
-        hint.Controls.Add(new Label
+        devicesBox.Controls.Add(devicesLayout);
+        root.Controls.Add(devicesBox, 0, 2);
+
+        var connectionBox = new GroupBox
         {
-            Text = "Tipp: Beide Geräte müssen Bluetooth aktiviert haben.\nBei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
-            AutoSize = false,
-            Size = new Size(588, 46),
-            Location = new Point(18, 8),
-            Font = new Font("Segoe UI", 8.5f),
+            Text = "Verbindung",
+            Dock = DockStyle.Top,
+            Height = 126,
+            Padding = new Padding(14, 24, 14, 12),
+            Margin = new Padding(0, 0, 0, 14),
             ForeColor = Ink
-        });
+        };
 
-        AddSection(content, "VERBINDUNG", 0, 508);
+        var connectionLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2
+        };
+        connectionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        connectionLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        connectionLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
         connectionLabel.Text = "Kein Gerät verbunden";
         connectionLabel.AutoSize = true;
-        connectionLabel.Font = new Font("Segoe UI Semibold", 10);
+        connectionLabel.Font = new Font("Segoe UI Semibold", 10F);
         connectionLabel.ForeColor = Ink;
-        connectionLabel.Location = new Point(0, 536);
-        content.Controls.Add(connectionLabel);
+        connectionLayout.Controls.Add(connectionLabel, 0, 0);
 
-        sendHelloButton.Text = "Hello senden";
-        sendHelloButton.Size = new Size(832, 44);
-        sendHelloButton.Location = new Point(0, 568);
-        sendHelloButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        sendHelloButton.Click += async (_, _) => await SendHelloAsync();
-        StyleButton(sendHelloButton, Green, Color.White);
+        sendHelloButton.Text = "➤   Hello senden";
+        sendHelloButton.Dock = DockStyle.Fill;
+        sendHelloButton.Height = 48;
+        sendHelloButton.Margin = new Padding(0, 10, 0, 0);
+        sendHelloButton.Font = new Font("Segoe UI Semibold", 12F);
+        sendHelloButton.TextAlign = ContentAlignment.MiddleCenter;
         sendHelloButton.Enabled = false;
-        content.Controls.Add(sendHelloButton);
+        StyleSendButton(sendHelloButton);
+        sendHelloButton.Click += async (_, _) => await SendHelloAsync();
+        connectionLayout.Controls.Add(sendHelloButton, 0, 1);
 
-        var footer = new Label
-        {
-            Text = "Direkt zwischen deinen Geräten · keine Cloud · keine Server",
-            AutoSize = false,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(832, 30),
-            Location = new Point(0, 630),
-            Font = new Font("Segoe UI", 8),
-            ForeColor = Color.FromArgb(145, 158, 165)
-        };
-        content.Controls.Add(footer);
+        connectionBox.Controls.Add(connectionLayout);
+        root.Controls.Add(connectionBox, 0, 3);
+
+        messageLabel.Text = "Bereit";
+        messageLabel.Dock = DockStyle.Fill;
+        messageLabel.AutoSize = false;
+        messageLabel.Height = 28;
+        messageLabel.TextAlign = ContentAlignment.MiddleLeft;
+        messageLabel.Font = new Font("Segoe UI", 9F);
+        messageLabel.ForeColor = Muted;
+        root.Controls.Add(messageLabel, 0, 4);
 
         transport.StatusChanged += (_, message) => SetStatus(message);
         transport.DevicesChanged += (_, devices) => ShowDevices(devices);
-        transport.MessageReceived += (_, message) => SetStatus("← " + message);
+        transport.MessageReceived += (_, message) => SetStatus("Empfangen: " + message);
 
         Shown += async (_, _) => await ScanAsync();
         FormClosed += async (_, _) => await transport.DisposeAsync();
@@ -203,16 +258,22 @@ sealed class EcosysForm : Form
     {
         scanButton.Enabled = false;
         scanButton.Text = "Suche …";
+
         try
         {
             var radios = await Radio.GetRadiosAsync();
             var bluetoothRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+
             if (bluetoothRadio is null || bluetoothRadio.State != RadioState.On)
             {
-                SetStatus("Bluetooth ist deaktiviert");
-                var result = MessageBox.Show(this,
+                SetStatus("Bluetooth ist deaktiviert.");
+                var result = MessageBox.Show(
+                    this,
                     "Ecosys benötigt Bluetooth, um Geräte zu finden. Soll die Windows-Bluetooth-Einstellungsseite geöffnet werden?",
-                    "Bluetooth benötigt", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    "Bluetooth benötigt",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+
                 if (result == DialogResult.Yes)
                     OpenSettings("ms-settings:bluetooth");
                 return;
@@ -222,16 +283,17 @@ sealed class EcosysForm : Form
         }
         catch (UnauthorizedAccessException)
         {
-            SetStatus("Bluetooth-Zugriff nicht erlaubt");
-            var result = MessageBox.Show(this,
-                "Windows hat den Bluetooth-Zugriff für Ecosys nicht freigegeben. Bitte Bluetooth in den Windows-Einstellungen aktivieren bzw. die Geräteberechtigung bestätigen.",
-                "Bluetooth-Zugriff", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
-            if (result == DialogResult.OK)
-                OpenSettings("ms-settings:bluetooth");
+            SetStatus("Bluetooth-Zugriff nicht erlaubt.");
+            MessageBox.Show(
+                this,
+                "Windows hat den Bluetooth-Zugriff für Ecosys nicht freigegeben. Bitte Bluetooth bzw. die Geräteberechtigung in den Windows-Einstellungen prüfen.",
+                "Bluetooth-Zugriff",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
         catch (Exception ex)
         {
-            SetStatus("Bluetooth-Suche fehlgeschlagen");
+            SetStatus("Bluetooth-Suche fehlgeschlagen.");
             MessageBox.Show(this, ex.Message, "Ecosys Bluetooth", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
@@ -243,25 +305,89 @@ sealed class EcosysForm : Form
 
     void ShowDevices(IReadOnlyList<BluetoothDeviceInfo> devices)
     {
-        if (InvokeRequired) { BeginInvoke(() => ShowDevices(devices)); return; }
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => ShowDevices(devices));
+            return;
+        }
 
+        devicesPanel.SuspendLayout();
         devicesPanel.Controls.Clear();
+
         deviceCountLabel.Text = devices.Count == 0
             ? "Keine Ecosys-Geräte gefunden"
             : $"{devices.Count} Gerät{(devices.Count == 1 ? "" : "e")} gefunden";
 
         foreach (var device in devices)
         {
-            var card = MakeCard(devicesPanel, 0, 0, 608, 68);
-            card.Margin = new Padding(0, 0, 0, 8);
-            card.Controls.Add(new DeviceGlyph { Location = new Point(14, 15), Size = new Size(38, 38), Kind = "phone" });
-            card.Controls.Add(new Label { Text = device.Name, AutoSize = true, Font = new Font("Segoe UI Semibold", 9.5f), ForeColor = Ink, Location = new Point(66, 13) });
-            card.Controls.Add(new Label { Text = "Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = Muted, Location = new Point(66, 38) });
+            var row = new Panel
+            {
+                Height = 62,
+                Width = Math.Max(400, devicesPanel.ClientSize.Width - 26),
+                BackColor = Color.White,
+                Margin = new Padding(0, 0, 0, 8),
+                BorderStyle = BorderStyle.FixedSingle
+            };
 
-            var connect = MakeButton("Verbinden", Blue, Color.White, 488, 17, 104, 34);
+            var name = new Label
+            {
+                Text = device.Name,
+                AutoEllipsis = true,
+                AutoSize = false,
+                Location = new Point(14, 8),
+                Size = new Size(Math.Max(180, row.Width - 160), 23),
+                Font = new Font("Segoe UI Semibold", 10F),
+                ForeColor = Ink
+            };
+            row.Controls.Add(name);
+
+            var detail = new Label
+            {
+                Text = "Ecosys Bluetooth",
+                AutoSize = true,
+                Location = new Point(14, 33),
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = Muted
+            };
+            row.Controls.Add(detail);
+
+            var connect = new Button
+            {
+                Text = "Verbinden",
+                Size = new Size(110, 38),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(Math.Max(180, row.Width - 124), 11),
+                Font = new Font("Segoe UI Semibold", 9F),
+                Margin = new Padding(0)
+            };
+            StylePrimaryButton(connect);
             connect.Click += async (_, _) => await ConnectAsync(device, connect);
-            card.Controls.Add(connect);
-            devicesPanel.Controls.Add(card);
+            row.Controls.Add(connect);
+
+            devicesPanel.Controls.Add(row);
+        }
+
+        devicesPanel.ResumeLayout();
+        ResizeDeviceRows();
+    }
+
+    void ResizeDeviceRows()
+    {
+        foreach (Control control in devicesPanel.Controls)
+        {
+            if (control is not Panel row)
+                continue;
+
+            row.Width = Math.Max(400, devicesPanel.ClientSize.Width - 26);
+
+            foreach (Control child in row.Controls)
+            {
+                if (child is Label label && label.Text != "Ecosys Bluetooth")
+                    label.Width = Math.Max(180, row.Width - 160);
+
+                if (child is Button button)
+                    button.Left = Math.Max(180, row.Width - button.Width - 12);
+            }
         }
     }
 
@@ -269,15 +395,19 @@ sealed class EcosysForm : Form
     {
         button.Enabled = false;
         button.Text = "Verbinde …";
+        SetStatus($"Verbinde mit {device.Name} …");
+
         try
         {
             await transport.ConnectAsync(device);
             connectionLabel.Text = $"Verbunden mit {device.Name}";
             sendHelloButton.Enabled = true;
+            SetStatus($"Verbunden mit {device.Name}");
         }
         catch (Exception ex)
         {
             connectionLabel.Text = "Verbindung fehlgeschlagen";
+            SetStatus("Verbindung fehlgeschlagen.");
             MessageBox.Show(this, ex.Message, "Ecosys Bluetooth", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
@@ -294,74 +424,71 @@ sealed class EcosysForm : Form
             await transport.SendAsync(Ecosys.Windows.Protocol.EcosysMessage
                 .Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows")
                 .ToJsonString());
-            SetStatus("Hello gesendet");
+
+            SetStatus("Hello erfolgreich gesendet.");
         }
         catch (Exception ex)
         {
-            SetStatus("Senden fehlgeschlagen");
+            SetStatus("Senden fehlgeschlagen.");
             MessageBox.Show(this, ex.Message, "Ecosys", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
     void SetStatus(string message)
     {
-        if (InvokeRequired) { BeginInvoke(() => SetStatus(message)); return; }
-        statusLabel.Text = message.Length > 46 ? message[..46] : message;
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => SetStatus(message));
+            return;
+        }
+
+        bluetoothStatusLabel.Text = message;
+        messageLabel.Text = message;
     }
 
-    static RoundPanel MakeCard(Control parent, int x, int y, int w, int h)
+    static void StylePrimaryButton(Button button)
     {
-        var card = new RoundPanel { Location = new Point(x, y), Size = new Size(w, h), Fill = Color.White, Radius = 12 };
-        parent.Controls.Add(card);
-        return card;
+        button.BackColor = Blue;
+        button.ForeColor = Color.White;
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(55, 105, 210);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(35, 80, 175);
+        button.Cursor = Cursors.Hand;
     }
 
-    static void AddSection(Control parent, string text, int x, int y)
+    static void StyleSecondaryButton(Button button)
     {
-        parent.Controls.Add(new Label { Text = text, AutoSize = true, Font = new Font("Segoe UI Semibold", 8), ForeColor = Ink, Location = new Point(x, y) });
+        button.BackColor = Color.White;
+        button.ForeColor = Ink;
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderColor = Color.FromArgb(190, 200, 208);
+        button.FlatAppearance.BorderSize = 1;
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(235, 240, 245);
+        button.Cursor = Cursors.Hand;
     }
 
-    static Button MakeButton(string text, Color fill, Color fore, int x, int y, int w, int h)
+    static void StyleSendButton(Button button)
     {
-        var b = new Button { Text = text, Location = new Point(x, y), Size = new Size(w, h), FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI Semibold", 8.5f) };
-        StyleButton(b, fill, fore);
-        return b;
-    }
-
-    static void StyleButton(Button b, Color fill, Color fore)
-    {
-        b.BackColor = fill;
-        b.ForeColor = fore;
-        b.FlatAppearance.BorderSize = 0;
-        b.Cursor = Cursors.Hand;
+        button.BackColor = Color.RoyalBlue;
+        button.ForeColor = Color.White;
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(65, 105, 225);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(35, 75, 180);
+        button.Cursor = Cursors.Hand;
     }
 
     static void OpenSettings(string uri)
     {
-        try { Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true }); } catch { }
-    }
-
-    void AddTopButton(Panel p, string text, int x, Action click)
-    {
-        var b = new Label { Text = text, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(x, 0), Size = new Size(44, 34), Font = new Font("Segoe UI", 9), ForeColor = Muted, Cursor = Cursors.Hand };
-        b.Click += (_, _) => click();
-        p.Controls.Add(b);
-    }
-
-    void DragWindow(object? sender, MouseEventArgs e)
-    {
-        if (e.Button == MouseButtons.Left)
+        try
         {
-            ReleaseCapture();
-            SendMessage(Handle, 0xA1, 2, 0);
+            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
+        }
+        catch
+        {
         }
     }
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ReleaseCapture();
-    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wp, int lp);
-
-
-    static Icon CreateAppIcon() => LoadAppIcon();
 
     static Icon LoadAppIcon()
     {
@@ -375,157 +502,7 @@ sealed class EcosysForm : Form
             return SystemIcons.Application;
         }
     }
-
-    static Bitmap IconToBitmap(Icon? icon) => icon?.ToBitmap() ?? SystemIcons.Application.ToBitmap();
-
-
 }
-
-
-sealed class RoundPanel : Panel
-{
-    public Color Fill { get; set; } = Color.White;
-    public int Radius { get; set; } = 12;
-
-    public RoundPanel()
-    {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
-                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        BackColor = Color.White;
-    }
-
-    protected override void OnPaintBackground(PaintEventArgs e)
-    {
-        var rect = ClientRectangle;
-        if (rect.Width <= 0 || rect.Height <= 0) return;
-        using var path = RoundedRect(rect, Radius);
-        using var brush = new SolidBrush(Fill);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        e.Graphics.FillPath(brush, path);
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-        var rect = ClientRectangle;
-        if (rect.Width <= 0 || rect.Height <= 0) return;
-        using var path = RoundedRect(rect, Radius);
-        using var pen = new Pen(Color.FromArgb(225, 231, 235), 1);
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        e.Graphics.DrawPath(pen, path);
-    }
-
-    static GraphicsPath RoundedRect(Rectangle rect, int radius)
-    {
-        var path = new GraphicsPath();
-        var r = Math.Max(1, Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2));
-        var d = r * 2;
-        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-}
-
-sealed class GradientPanel : Panel
-{
-    public GradientPanel()
-    {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
-                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-    }
-
-    protected override void OnPaintBackground(PaintEventArgs e)
-    {
-        var rect = ClientRectangle;
-        if (rect.Width <= 0 || rect.Height <= 0) return;
-        using var brush = new LinearGradientBrush(
-            rect,
-            Color.FromArgb(18, 58, 94),
-            Color.FromArgb(28, 110, 79),
-            25f);
-        e.Graphics.FillRectangle(brush, rect);
-    }
-}
-
-sealed class DotControl : Control
-{
-    public Color Fill { get; set; } = Color.White;
-
-    public DotControl()
-    {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
-                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-        var rect = ClientRectangle;
-        if (rect.Width <= 0 || rect.Height <= 0) return;
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var brush = new SolidBrush(Fill);
-        e.Graphics.FillEllipse(brush, rect);
-    }
-}
-
-sealed class DeviceGlyph : Control
-{
-    public string Kind { get; set; } = "phone";
-
-    public DeviceGlyph()
-    {
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
-                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        BackColor = Color.White;
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-        var rect = ClientRectangle;
-        if (rect.Width <= 0 || rect.Height <= 0) return;
-
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var brush = new SolidBrush(Color.FromArgb(232, 239, 243));
-        e.Graphics.FillEllipse(brush, rect);
-
-        using var pen = new Pen(Color.FromArgb(47, 111, 176), 2);
-        if (Kind == "pc")
-        {
-            var screen = new Rectangle(9, 8, Math.Max(1, rect.Width - 18), Math.Max(1, rect.Height - 17));
-            e.Graphics.DrawRoundedRectangle(pen, screen, 4);
-            e.Graphics.DrawLine(pen, rect.Width / 2, rect.Height - 9, rect.Width / 2, rect.Height - 5);
-            e.Graphics.DrawLine(pen, 12, rect.Height - 5, rect.Width - 12, rect.Height - 5);
-        }
-        else
-        {
-            var phone = new Rectangle(13, 7, Math.Max(1, rect.Width - 26), Math.Max(1, rect.Height - 14));
-            e.Graphics.DrawRoundedRectangle(pen, phone, 5);
-            e.Graphics.FillEllipse(Brushes.White, rect.Width / 2 - 1, 10, 2, 2);
-        }
-    }
-}
-
-static class GraphicsExtensions
-{
-    public static void DrawRoundedRectangle(this Graphics graphics, Pen pen, Rectangle rect, int radius)
-    {
-        if (rect.Width <= 0 || rect.Height <= 0) return;
-        using var path = new GraphicsPath();
-        var r = Math.Max(1, Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2));
-        var d = r * 2;
-        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        graphics.DrawPath(pen, path);
-    }
-}
-
 
 static class StartupDiagnostics
 {
