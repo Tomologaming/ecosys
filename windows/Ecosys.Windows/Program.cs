@@ -325,7 +325,9 @@ sealed class EcosysForm : Form
     {
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            var rect = ClientRectangle;\n            if (rect.Width <= 0 || rect.Height <= 0) return;\n            using var brush = new LinearGradientBrush(rect, Color.FromArgb(18, 58, 94), Color.FromArgb(28, 110, 79), 25);
+            var rect = ClientRectangle;
+            if (rect.Width <= 0 || rect.Height <= 0) return;
+            using var brush = new LinearGradientBrush(rect, Color.FromArgb(18, 58, 94), Color.FromArgb(28, 110, 79), 25);
             e.Graphics.FillRectangle(brush, ClientRectangle);
         }
     }
