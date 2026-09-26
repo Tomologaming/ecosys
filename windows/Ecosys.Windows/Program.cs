@@ -470,7 +470,7 @@ sealed class DeviceGlyph : Control
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
                   ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        BackColor = Color.Transparent;
+        BackColor = Color.White;
     }
 
     protected override void OnPaint(PaintEventArgs e)
