@@ -1,3 +1,0 @@
-# ecosys
-A connection between Windows, Android, iOS, iPadOS and macOS. (Available soon as a .exe, .apk, on AltStore and as a .dmg)
-\n\n## Ecosys App Icon\n\nThe current Ecosys app icon is maintained in the repository here:\n\n[ecosys_app_icon_v3.png](https://github.com/Tomologaming/ecosys/blob/62e0e68e83137e016afd498ef7b812fc4e571297/icon/ecosys_app_icon_v3.png)\n\nThis file is the source artwork for the Android, Windows and future iOS app icons.\n
