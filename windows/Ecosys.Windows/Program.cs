@@ -19,12 +19,15 @@ try
 catch (Exception ex)
 {
     StartupDiagnostics.Log("Startup exception", ex);
-    MessageBox.Show(
-        "Ecosys konnte nicht gestartet werden.\n\n" +
-        "Details wurden unter %LOCALAPPDATA%\\Ecosys\\startup.log gespeichert.",
-        "Ecosys Startfehler",
-        MessageBoxButtons.OK,
-        MessageBoxIcon.Error);
+    if (!string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase))
+    {
+        MessageBox.Show(
+            "Ecosys konnte nicht gestartet werden.\n\n" +
+            "Details wurden unter %LOCALAPPDATA%\\Ecosys\\startup.log gespeichert.",
+            "Ecosys Startfehler",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
+    }
     Environment.ExitCode = 1;
 }
 
