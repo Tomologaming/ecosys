@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
+using Windows.Devices.Bluetooth;
 using Ecosys.Windows.Transport;
 
 ApplicationConfiguration.Initialize();
@@ -120,8 +121,7 @@ sealed class EcosysForm : Form
         content.Controls.Add(hint);
         hint.Controls.Add(new Label
         {
-            Text = "Tipp: Beide Geräte müssen Bluetooth aktiviert haben.
-Bei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
+            Text = "Tipp: Beide Geräte müssen Bluetooth aktiviert haben.\nBei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
             AutoSize = false,
             Size = new Size(588, 46),
             Location = new Point(18, 8),
@@ -171,7 +171,28 @@ Bei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
         scanButton.Text = "Suche …";
         try
         {
+            var adapter = await BluetoothAdapter.GetDefaultAsync();
+            if (adapter is null || !adapter.IsRadioEnabled)
+            {
+                SetStatus("Bluetooth ist deaktiviert");
+                var result = MessageBox.Show(this,
+                    "Ecosys benötigt Bluetooth, um Geräte zu finden. Soll die Windows-Bluetooth-Einstellungsseite geöffnet werden?",
+                    "Bluetooth benötigt", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                if (result == DialogResult.Yes)
+                    OpenSettings("ms-settings:bluetooth");
+                return;
+            }
+
             await transport.ScanAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            SetStatus("Bluetooth-Zugriff nicht erlaubt");
+            var result = MessageBox.Show(this,
+                "Windows hat den Bluetooth-Zugriff für Ecosys nicht freigegeben. Bitte Bluetooth in den Windows-Einstellungen aktivieren bzw. die Geräteberechtigung bestätigen.",
+                "Bluetooth-Zugriff", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            if (result == DialogResult.OK)
+                OpenSettings("ms-settings:bluetooth");
         }
         catch (Exception ex)
         {
