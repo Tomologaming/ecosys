@@ -18,9 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ios/Ecosys/Assets.xcassets/AppIcon.appiconset
-          curl -L --fail --retry 3 \
-            -o ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png \
-            https://raw.githubusercontent.com/Tomologaming/ecosys/main/icon/ecosys_app_icon_v3.png
+          cp icon/ecosys.png ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+          test -s ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
 
       - name: Build iOS app for Sideloadly
         run: |
