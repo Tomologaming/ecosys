@@ -338,3 +338,131 @@ sealed class EcosysForm : Form
 
 
 }
+
+
+sealed class RoundPanel : Panel
+{
+    public Color Fill { get; set; } = Color.White;
+    public int Radius { get; set; } = 12;
+
+    public RoundPanel()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Color.Transparent;
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        var rect = ClientRectangle;
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+        using var path = RoundedRect(rect, Radius);
+        using var brush = new SolidBrush(Fill);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        e.Graphics.FillPath(brush, path);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        var rect = ClientRectangle;
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+        using var path = RoundedRect(rect, Radius);
+        using var pen = new Pen(Color.FromArgb(225, 231, 235), 1);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        e.Graphics.DrawPath(pen, path);
+    }
+
+    static GraphicsPath RoundedRect(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        var r = Math.Max(1, Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2));
+        var d = r * 2;
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+}
+
+sealed class GradientPanel : Panel
+{
+    public GradientPanel()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        var rect = ClientRectangle;
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+        using var brush = new LinearGradientBrush(
+            rect,
+            Color.FromArgb(18, 58, 94),
+            Color.FromArgb(28, 110, 79),
+            25f);
+        e.Graphics.FillRectangle(brush, rect);
+    }
+}
+
+sealed class DotControl : Control
+{
+    public Color Fill { get; set; } = Color.White;
+
+    public DotControl()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        var rect = ClientRectangle;
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var brush = new SolidBrush(Fill);
+        e.Graphics.FillEllipse(brush, rect);
+    }
+}
+
+sealed class DeviceGlyph : Control
+{
+    public string Kind { get; set; } = "phone";
+
+    public DeviceGlyph()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Color.Transparent;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        var rect = ClientRectangle;
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var brush = new SolidBrush(Color.FromArgb(232, 239, 243));
+        e.Graphics.FillEllipse(brush, rect);
+
+        using var pen = new Pen(Color.FromArgb(47, 111, 176), 2);
+        if (Kind == "pc")
+        {
+            var screen = new Rectangle(9, 8, Math.Max(1, rect.Width - 18), Math.Max(1, rect.Height - 17));
+            e.Graphics.DrawRoundedRectangle(pen, screen, 4);
+            e.Graphics.DrawLine(pen, rect.Width / 2, rect.Height - 9, rect.Width / 2, rect.Height - 5);
+            e.Graphics.DrawLine(pen, 12, rect.Height - 5, rect.Width - 12, rect.Height - 5);
+        }
+        else
+        {
+            var phone = new Rectangle(13, 7, Math.Max(1, rect.Width - 26), Math.Max(1, rect.Height - 14));
+            e.Graphics.DrawRoundedRectangle(pen, phone, 5);
+            e.Graphics.FillEllipse(Brushes.White, rect.Width / 2 - 1, 10, 2, 2);
+        }
+    }
+}
