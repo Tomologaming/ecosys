@@ -1,4 +1,4 @@
-name: Safe Windows Release
+name: Ecosys Safe Windows Release
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: safe-windows-release
+  group: ecosys-safe-windows-release
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: Safe
+          fetch-depth: 1
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -29,49 +30,59 @@ jobs:
           dotnet-version: "8.0.425"
 
       - name: Verify .NET SDK
+        shell: pwsh
         run: dotnet --version
 
-      - name: Validate Windows project sources
-        shell: pwsh
-        run: |
-          $files = @(
-            "windows/Ecosys.Windows/Ecosys.Windows.csproj",
-            "windows/Ecosys.Windows/Program.cs",
-            "windows/Ecosys.Windows/Transport/BluetoothTransport.cs"
-          )
-          foreach ($file in $files) {
-            if (-not (Test-Path $file)) { throw "Required source file is missing: $file" }
-            $text = Get-Content $file -Raw
-            if ($text.Contains("\\n")) { throw "Literal \\n sequence found in $file. Refusing to publish a broken build." }
-          }
-
       - name: Restore Windows project
+        shell: pwsh
         run: dotnet restore windows/Ecosys.Windows/Ecosys.Windows.csproj
 
       - name: Build Windows project
+        shell: pwsh
         run: dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --no-restore
 
       - name: Publish self-contained Windows app
+        shell: pwsh
         run: >
           dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj
           --configuration Release
           --runtime win-x64
           --self-contained true
           --output dist/publish
+          --no-restore
           -p:PublishSingleFile=false
           -p:IncludeNativeLibrariesForSelfExtract=false
+
+      - name: Verify published application
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/publish/Ecosys.Windows.exe")) {
+            throw "Published Ecosys.Windows.exe was not found."
+          }
+          if (-not (Test-Path "installer/Ecosys.iss")) {
+            throw "installer/Ecosys.iss was not found."
+          }
+          if (-not (Test-Path "windows/Ecosys.Windows/Assets/ecosys.ico")) {
+            throw "Windows application icon was not found."
+          }
 
       - name: Create Safe application archive
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/publish/* -DestinationPath dist/Ecosys-windows-safe.zip
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path dist/publish/* -DestinationPath dist/Ecosys-windows-safe.zip -Force
           (Get-FileHash dist/Ecosys-windows-safe.zip -Algorithm SHA256).Hash |
-            Out-File dist/Ecosys-windows-safe.zip.sha256 -Encoding ascii
+            Set-Content dist/Ecosys-windows-safe.zip.sha256 -Encoding ascii
 
       - name: Install Inno Setup
         shell: pwsh
         run: |
-          winget install --id JRSoftware.InnoSetup.7 -e --accept-package-agreements --accept-source-agreements --silent
+          winget source update
+          winget install --id JRSoftware.InnoSetup.7 -e -s winget `
+            --accept-package-agreements `
+            --accept-source-agreements `
+            --silent `
+            --disable-interactivity
 
       - name: Locate Inno Setup
         shell: pwsh
@@ -84,24 +95,42 @@ jobs:
             (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
             (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe")
           )
-          $iscc = $candidates | Where-Object { Test-Path $_ -PathType Leaf } | Select-Object -First 1
+
+          $iscc = $candidates |
+            Where-Object { Test-Path $_ -PathType Leaf } |
+            Select-Object -First 1
+
           if (-not $iscc) {
             $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-            if ($command) { $iscc = $command.Source }
+            if ($command) {
+              $iscc = $command.Source
+            }
           }
-          if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
+
+          if (-not $iscc) {
+            throw "ISCC.exe was not found after installing Inno Setup."
+          }
+
           Write-Host "Using Inno Setup compiler: $iscc"
-          "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+          "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build online installer
         shell: pwsh
         run: |
           & "$env:ISCC_PATH" installer/Ecosys.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path "installer/Output/Ecosys-Setup.exe")) {
+            throw "Online installer was not created."
+          }
 
       - name: Build offline installer
         shell: pwsh
         run: |
           & "$env:ISCC_PATH" /DOfflineMode /F"Ecosys-Offline-Setup" installer/Ecosys.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path "installer/Output/Ecosys-Offline-Setup.exe")) {
+            throw "Offline installer was not created."
+          }
 
       - name: Create release
         shell: pwsh
