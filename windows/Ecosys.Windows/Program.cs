@@ -55,8 +55,11 @@ sealed class EcosysForm : Form
         Text = "Ecosys";
         FormBorderStyle = FormBorderStyle.Sizable;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(900, 820);
-        MinimumSize = new Size(820, 760);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        Font = new Font("Segoe UI", 10F);
+        ClientSize = new Size(1000, 860);
+        MinimumSize = new Size(900, 760);
         BackColor = Page;
         DoubleBuffered = true;
         Icon = CreateAppIcon();
@@ -104,7 +107,8 @@ sealed class EcosysForm : Form
         root.Controls.Add(content);
 
         AddSection(content, "DIESER PC", 0, 0);
-        var local = MakeCard(content, 0, 28, 632, 74);
+        var local = MakeCard(content, 0, 28, 832, 74);
+        local.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         local.Controls.Add(new DeviceGlyph { Location = new Point(14, 16), Size = new Size(38, 38), Kind = "pc" });
         localNameLabel.Text = Environment.MachineName;
         localNameLabel.AutoSize = true;
@@ -114,7 +118,8 @@ sealed class EcosysForm : Form
         local.Controls.Add(localNameLabel);
         local.Controls.Add(new Label { Text = "Windows · Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, Location = new Point(66, 40) });
 
-        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Ink, 430, 20, 184, 34);
+        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Ink, 630, 20, 184, 34);
+        settings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         settings.Click += (_, _) => OpenSettings("ms-settings:bluetooth");
         local.Controls.Add(settings);
 
@@ -129,12 +134,14 @@ sealed class EcosysForm : Form
         scanButton.Text = "Suchen";
         scanButton.Size = new Size(100, 34);
         scanButton.Location = new Point(730, 134);
+        scanButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         scanButton.Click += async (_, _) => await ScanAsync();
         StyleButton(scanButton, Blue, Color.White);
         content.Controls.Add(scanButton);
 
         devicesPanel.Location = new Point(0, 180);
         devicesPanel.Size = new Size(832, 230);
+        devicesPanel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         devicesPanel.FlowDirection = FlowDirection.TopDown;
         devicesPanel.WrapContents = false;
         devicesPanel.AutoScroll = true;
@@ -143,6 +150,7 @@ sealed class EcosysForm : Form
         content.Controls.Add(devicesPanel);
 
         var hint = new RoundPanel { Location = new Point(0, 422), Size = new Size(832, 62), Fill = Color.FromArgb(232, 239, 243), Radius = 12 };
+        hint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         content.Controls.Add(hint);
         hint.Controls.Add(new Label
         {
@@ -165,6 +173,7 @@ sealed class EcosysForm : Form
         sendHelloButton.Text = "Hello senden";
         sendHelloButton.Size = new Size(832, 44);
         sendHelloButton.Location = new Point(0, 568);
+        sendHelloButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         sendHelloButton.Click += async (_, _) => await SendHelloAsync();
         StyleButton(sendHelloButton, Green, Color.White);
         sendHelloButton.Enabled = false;
