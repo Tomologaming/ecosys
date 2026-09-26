@@ -18,8 +18,17 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ios/Ecosys/Assets.xcassets/AppIcon.appiconset
-          cp icon/ecosys.png ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
-          test -s ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+          ICON="icon/ecosys.png"
+          TARGET="ios/Ecosys/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
+          test -s "$ICON"
+          # The repository icon is the master artwork; Xcode requires the app-icon
+          # slot to contain an exact 1024x1024 PNG.
+          sips -z 1024 1024 "$ICON" --out "$TARGET" >/dev/null
+          test -s "$TARGET"
+          WIDTH="$(sips -g pixelWidth "$TARGET" | awk '/pixelWidth/ {print $2}')"
+          HEIGHT="$(sips -g pixelHeight "$TARGET" | awk '/pixelHeight/ {print $2}')"
+          test "$WIDTH" = "1024"
+          test "$HEIGHT" = "1024"
 
       - name: Build iOS app for Sideloadly
         run: |
