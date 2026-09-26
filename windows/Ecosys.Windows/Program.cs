@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using Windows.Devices.Bluetooth;
+using Windows.Devices.Radios;
 using Ecosys.Windows.Transport;
 
 ApplicationConfiguration.Initialize();
@@ -171,8 +172,9 @@ sealed class EcosysForm : Form
         scanButton.Text = "Suche …";
         try
         {
-            var adapter = await BluetoothAdapter.GetDefaultAsync();
-            if (adapter is null || !adapter.IsRadioEnabled)
+            var radios = await Radio.GetRadiosAsync();
+            var bluetoothRadio = radios.FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+            if (bluetoothRadio is null || bluetoothRadio.State != RadioState.On)
             {
                 SetStatus("Bluetooth ist deaktiviert");
                 var result = MessageBox.Show(this,
@@ -185,7 +187,7 @@ sealed class EcosysForm : Form
 
             await transport.ScanAsync();
         }
-        catch (UnauthorizedAccessException ex)
+        catch (UnauthorizedAccessException)
         {
             SetStatus("Bluetooth-Zugriff nicht erlaubt");
             var result = MessageBox.Show(this,
@@ -464,5 +466,22 @@ sealed class DeviceGlyph : Control
             e.Graphics.DrawRoundedRectangle(pen, phone, 5);
             e.Graphics.FillEllipse(Brushes.White, rect.Width / 2 - 1, 10, 2, 2);
         }
+    }
+}
+
+static class GraphicsExtensions
+{
+    public static void DrawRoundedRectangle(this Graphics graphics, Pen pen, Rectangle rect, int radius)
+    {
+        if (rect.Width <= 0 || rect.Height <= 0) return;
+        using var path = new GraphicsPath();
+        var r = Math.Max(1, Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2));
+        var d = r * 2;
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        graphics.DrawPath(pen, path);
     }
 }
