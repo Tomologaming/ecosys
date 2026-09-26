@@ -53,6 +53,17 @@ jobs:
           -p:PublishSingleFile=false
           -p:IncludeNativeLibrariesForSelfExtract=false
 
+      - name: Smoke test Windows application startup
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "dist/publish/Ecosys.Windows.exe").Path
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          if ($process.HasExited) {
+            throw "Ecosys.Windows.exe exited during startup with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id -Force
+
       - name: Verify published application
         shell: pwsh
         run: |
