@@ -336,3 +336,5 @@ sealed class EcosysForm : Form
 
     static Bitmap IconToBitmap(Icon? icon) => icon?.ToBitmap() ?? SystemIcons.Application.ToBitmap();
 
+
+}
