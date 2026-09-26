@@ -151,6 +151,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         if peripheral.state == .poweredOn {
             publishPeripheralService()
+            startAdvertisingIfReady()
         } else if peripheral.state == .unauthorized {
             status = "Bluetooth-Berechtigung fehlt"
         }
