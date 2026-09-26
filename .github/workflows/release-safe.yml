@@ -60,6 +60,14 @@ jobs:
           $process = Start-Process -FilePath $exe -PassThru
           Start-Sleep -Seconds 5
           if ($process.HasExited) {
+            $log = Join-Path $env:LOCALAPPDATA "Ecosys\startup.log"
+            if (Test-Path $log) {
+              Write-Host "===== Ecosys startup.log ====="
+              Get-Content $log
+              Write-Host "===== End startup.log ====="
+            } else {
+              Write-Host "Ecosys startup.log was not created at $log"
+            }
             throw "Ecosys.Windows.exe exited during startup with code $($process.ExitCode)."
           }
           Stop-Process -Id $process.Id -Force
