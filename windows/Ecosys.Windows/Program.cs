@@ -35,10 +35,10 @@ sealed class EcosysForm : Form
         DoubleBuffered = true;
         Icon = CreateAppIcon();
 
-        var root = new Panel { Dock = DockStyle.Fill, BackColor = Page, Padding = new Padding(28) };
+        var root = new Panel { Dock = DockStyle.Fill, BackColor = Page, Padding = new Padding(34, 24, 34, 28) };
         Controls.Add(root);
 
-        var top = new Panel { Dock = DockStyle.Top, Height = 34, BackColor = Page };
+        var top = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Page };
         top.MouseDown += DragWindow;
         root.Controls.Add(top);
 
@@ -48,22 +48,22 @@ sealed class EcosysForm : Form
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 10),
             ForeColor = Ink,
-            Location = new Point(0, 7)
+            Location = new Point(0, 9)
         };
         top.Controls.Add(title);
 
-        AddTopButton(top, "—", 468, () => WindowState = FormWindowState.Minimized);
-        AddTopButton(top, "□", 512, () => WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized);
-        AddTopButton(top, "×", 556, Close);
+        AddTopButton(top, "—", 548, () => WindowState = FormWindowState.Minimized);
+        AddTopButton(top, "□", 592, () => WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized);
+        AddTopButton(top, "×", 636, Close);
 
-        var hero = new GradientPanel { Dock = DockStyle.Top, Height = 178, Padding = new Padding(26) };
+        var hero = new GradientPanel { Dock = DockStyle.Top, Height = 190, Padding = new Padding(26) };
         root.Controls.Add(hero);
 
         hero.Controls.Add(new EcosysLogo { Location = new Point(24, 28), Size = new Size(58, 58), DrawRing = true });
         hero.Controls.Add(new Label { Text = "Ecosys", AutoSize = true, Font = new Font("Segoe UI Semibold", 22), ForeColor = Color.White, Location = new Point(98, 25) });
         hero.Controls.Add(new Label { Text = "PRIVATE. DIRECT. YOURS.", AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = Color.FromArgb(185, 222, 205), Location = new Point(100, 61) });
 
-        var btCard = new RoundPanel { Location = new Point(24, 103), Size = new Size(516, 48), Fill = Color.FromArgb(31, 70, 91), Radius = 12 };
+        var btCard = new RoundPanel { Location = new Point(24, 103), Size = new Size(574, 48), Fill = Color.FromArgb(31, 70, 91), Radius = 12 };
         hero.Controls.Add(btCard);
         btCard.Controls.Add(new DotControl { Location = new Point(16, 19), Size = new Size(9, 9), Fill = Color.FromArgb(91, 220, 139) });
         statusLabel.Text = "Bluetooth wird geprüft …";
@@ -73,11 +73,11 @@ sealed class EcosysForm : Form
         statusLabel.Location = new Point(35, 14);
         btCard.Controls.Add(statusLabel);
 
-        var content = new Panel { Dock = DockStyle.Fill, BackColor = Page, AutoScroll = true, Padding = new Padding(0, 18, 0, 0) };
+        var content = new Panel { Dock = DockStyle.Fill, BackColor = Page, AutoScroll = true, Padding = new Padding(0, 20, 0, 0) };
         root.Controls.Add(content);
 
         AddSection(content, "DIESER PC", 0, 0);
-        var local = MakeCard(content, 0, 28, 544, 70);
+        var local = MakeCard(content, 0, 28, 632, 74);
         local.Controls.Add(new DeviceGlyph { Location = new Point(14, 16), Size = new Size(38, 38), Kind = "pc" });
         localNameLabel.Text = Environment.MachineName;
         localNameLabel.AutoSize = true;
@@ -87,7 +87,7 @@ sealed class EcosysForm : Form
         local.Controls.Add(localNameLabel);
         local.Controls.Add(new Label { Text = "Windows · Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, Location = new Point(66, 40) });
 
-        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Ink, 348, 19, 180, 34);
+        var settings = MakeButton("Bluetooth-Einstellungen", Color.FromArgb(230, 238, 243), Ink, 430, 20, 184, 34);
         settings.Click += (_, _) => OpenSettings("ms-settings:bluetooth");
         local.Controls.Add(settings);
 
@@ -101,13 +101,13 @@ sealed class EcosysForm : Form
 
         scanButton.Text = "Suchen";
         scanButton.Size = new Size(100, 34);
-        scanButton.Location = new Point(444, 134);
+        scanButton.Location = new Point(520, 134);
         scanButton.Click += async (_, _) => await ScanAsync();
         StyleButton(scanButton, Blue, Color.White);
         content.Controls.Add(scanButton);
 
         devicesPanel.Location = new Point(0, 180);
-        devicesPanel.Size = new Size(544, 230);
+        devicesPanel.Size = new Size(632, 230);
         devicesPanel.FlowDirection = FlowDirection.TopDown;
         devicesPanel.WrapContents = false;
         devicesPanel.AutoScroll = true;
@@ -115,13 +115,13 @@ sealed class EcosysForm : Form
         devicesPanel.Padding = new Padding(0);
         content.Controls.Add(devicesPanel);
 
-        var hint = new RoundPanel { Location = new Point(0, 422), Size = new Size(544, 62), Fill = Color.FromArgb(232, 239, 243), Radius = 12 };
+        var hint = new RoundPanel { Location = new Point(0, 422), Size = new Size(632, 62), Fill = Color.FromArgb(232, 239, 243), Radius = 12 };
         content.Controls.Add(hint);
         hint.Controls.Add(new Label
         {
             Text = "Tipp: Beide Geräte müssen Bluetooth aktiviert haben.\nBei der ersten Verbindung kann Windows eine Kopplung bestätigen lassen.",
             AutoSize = false,
-            Size = new Size(500, 46),
+            Size = new Size(588, 46),
             Location = new Point(18, 8),
             Font = new Font("Segoe UI", 8.5f),
             ForeColor = Ink
@@ -136,7 +136,7 @@ sealed class EcosysForm : Form
         content.Controls.Add(connectionLabel);
 
         sendHelloButton.Text = "Hello senden";
-        sendHelloButton.Size = new Size(544, 44);
+        sendHelloButton.Size = new Size(632, 44);
         sendHelloButton.Location = new Point(0, 568);
         sendHelloButton.Click += async (_, _) => await SendHelloAsync();
         StyleButton(sendHelloButton, Green, Color.White);
@@ -148,7 +148,7 @@ sealed class EcosysForm : Form
             Text = "Direkt zwischen deinen Geräten · keine Cloud · keine Server",
             AutoSize = false,
             TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(544, 30),
+            Size = new Size(632, 30),
             Location = new Point(0, 630),
             Font = new Font("Segoe UI", 8),
             ForeColor = Color.FromArgb(145, 158, 165)
@@ -194,13 +194,13 @@ sealed class EcosysForm : Form
 
         foreach (var device in devices)
         {
-            var card = MakeCard(devicesPanel, 0, 0, 520, 68);
+            var card = MakeCard(devicesPanel, 0, 0, 608, 68);
             card.Margin = new Padding(0, 0, 0, 8);
             card.Controls.Add(new DeviceGlyph { Location = new Point(14, 15), Size = new Size(38, 38), Kind = "phone" });
             card.Controls.Add(new Label { Text = device.Name, AutoSize = true, Font = new Font("Segoe UI Semibold", 9.5f), ForeColor = Ink, Location = new Point(66, 13) });
             card.Controls.Add(new Label { Text = "Ecosys Bluetooth", AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = Muted, Location = new Point(66, 38) });
 
-            var connect = MakeButton("Verbinden", Blue, Color.White, 402, 17, 98, 34);
+            var connect = MakeButton("Verbinden", Blue, Color.White, 488, 17, 104, 34);
             connect.Click += async (_, _) => await ConnectAsync(device, connect);
             card.Controls.Add(connect);
             devicesPanel.Controls.Add(card);
@@ -325,7 +325,7 @@ sealed class EcosysForm : Form
     {
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            using var brush = new LinearGradientBrush(ClientRectangle, Color.FromArgb(18, 58, 94), Color.FromArgb(28, 110, 79), 25);
+            var rect = ClientRectangle;\n            if (rect.Width <= 0 || rect.Height <= 0) return;\n            using var brush = new LinearGradientBrush(rect, Color.FromArgb(18, 58, 94), Color.FromArgb(28, 110, 79), 25);
             e.Graphics.FillRectangle(brush, ClientRectangle);
         }
     }
