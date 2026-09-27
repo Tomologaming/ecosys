@@ -19,14 +19,102 @@ public sealed class BluetoothTransport : ITransport
     private GattCharacteristic? gattTx;
     private GattCharacteristic? gattRx;
     private bool running;
+    private GattServiceProvider? gattServer;
+    private GattLocalCharacteristic? gattServerTx;
+    private GattLocalCharacteristic? gattServerRx;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? MessageReceived;
     public event EventHandler<IReadOnlyList<BluetoothDeviceInfo>>? DevicesChanged;
 
+    private async Task EnsureGattServerAsync()
+    {
+        if (gattServer is not null)
+            return;
+
+        try
+        {
+            var result = await GattServiceProvider.CreateAsync(BluetoothTransportUuids.BleServiceUuid);
+            if (result.Error != BluetoothError.Success)
+            {
+                StatusChanged?.Invoke(this, $"BLE-Server konnte nicht erstellt werden: {result.Error}");
+                return;
+            }
+
+            gattServer = result.ServiceProvider;
+
+            var txParameters = new GattLocalCharacteristicParameters
+            {
+                CharacteristicProperties = GattCharacteristicProperties.Write | GattCharacteristicProperties.WriteWithoutResponse,
+                WriteProtectionLevel = GattProtectionLevel.Plain
+            };
+            var txResult = await gattServer.Service.CreateCharacteristicAsync(
+                BluetoothTransportUuids.BleTxUuid, txParameters);
+            if (txResult.Error != BluetoothError.Success)
+                throw new InvalidOperationException($"BLE-TX konnte nicht erstellt werden: {txResult.Error}");
+
+            gattServerTx = txResult.Characteristic;
+            gattServerTx.WriteRequested += OnGattServerWriteRequested;
+
+            var rxParameters = new GattLocalCharacteristicParameters
+            {
+                CharacteristicProperties = GattCharacteristicProperties.Notify,
+                ReadProtectionLevel = GattProtectionLevel.Plain
+            };
+            var rxResult = await gattServer.Service.CreateCharacteristicAsync(
+                BluetoothTransportUuids.BleRxUuid, rxParameters);
+            if (rxResult.Error != BluetoothError.Success)
+                throw new InvalidOperationException($"BLE-RX konnte nicht erstellt werden: {rxResult.Error}");
+
+            gattServerRx = rxResult.Characteristic;
+
+            var advertisingParameters = new GattServiceProviderAdvertisingParameters
+            {
+                IsDiscoverable = true,
+                IsConnectable = true
+            };
+            gattServer.StartAdvertising(advertisingParameters);
+            StatusChanged?.Invoke(this, "Ecosys BLE wird für andere Geräte beworben");
+        }
+        catch (Exception ex)
+        {
+            gattServer = null;
+            gattServerTx = null;
+            gattServerRx = null;
+            StatusChanged?.Invoke(this, $"BLE-Server konnte nicht gestartet werden: {ex.Message}");
+        }
+    }
+
+    private async void OnGattServerWriteRequested(
+        GattLocalCharacteristic sender,
+        GattWriteRequestedEventArgs args)
+    {
+        var deferral = args.GetDeferral();
+        try
+        {
+            var request = await args.GetRequestAsync();
+            if (request is null)
+                return;
+
+            CryptographicBuffer.CopyToByteArray(request.Value, out var bytes);
+            MessageReceived?.Invoke(this, System.Text.Encoding.UTF8.GetString(bytes));
+            if (request.Option == GattWriteOption.WriteWithResponse)
+                request.Respond();
+        }
+        catch (Exception ex)
+        {
+            StatusChanged?.Invoke(this, $"BLE-Empfang fehlgeschlagen: {ex.Message}");
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
     public async Task<IReadOnlyList<BluetoothDeviceInfo>> ScanAsync(CancellationToken cancellationToken = default)
     {
         running = true;
+        await EnsureGattServerAsync();
         StatusChanged?.Invoke(this, "Bluetooth-Geräte werden gesucht …");
 
         var classicSelector = RfcommDeviceService.GetDeviceSelector(
@@ -241,6 +329,18 @@ public sealed class BluetoothTransport : ITransport
     public ValueTask DisposeAsync()
     {
         running = false;
+        if (gattServerTx is not null)
+            gattServerTx.WriteRequested -= OnGattServerWriteRequested;
+        try
+        {
+            gattServer?.StopAdvertising();
+        }
+        catch
+        {
+        }
+        gattServer = null;
+        gattServerTx = null;
+        gattServerRx = null;
         if (gattRx is not null) gattRx.ValueChanged -= OnBleValueChanged;
         gattRx = null;
         gattTx = null;
