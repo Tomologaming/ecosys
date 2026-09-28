@@ -67,6 +67,7 @@ public sealed class BluetoothTransport : ITransport
                 throw new InvalidOperationException($"BLE-RX konnte nicht erstellt werden: {rxResult.Error}");
 
             gattServerRx = rxResult.Characteristic;
+            gattServerRx.SubscribedClientsChanged += OnGattServerSubscribedClientsChanged;
 
             var advertisingParameters = new GattServiceProviderAdvertisingParameters
             {
@@ -83,6 +84,14 @@ public sealed class BluetoothTransport : ITransport
             gattServerRx = null;
             StatusChanged?.Invoke(this, $"BLE-Server konnte nicht gestartet werden: {ex.Message}");
         }
+    }
+
+    private void OnGattServerSubscribedClientsChanged(GattLocalCharacteristic sender, object args)
+    {
+        var count = sender.SubscribedClients.Count;
+        StatusChanged?.Invoke(this, count == 0
+            ? "Kein BLE-Gerät mehr verbunden"
+            : $"{count} BLE-Gerät{(count == 1 ? "" : "e")} für Nachrichten verbunden");
     }
 
     private async void OnGattServerWriteRequested(
@@ -255,6 +264,15 @@ public sealed class BluetoothTransport : ITransport
             return;
         }
 
+        if (gattServerRx is not null && gattServerRx.SubscribedClients.Count > 0)
+        {
+            var buffer = CryptographicBuffer.ConvertStringToBinary(message, BinaryStringEncoding.Utf8);
+            var result = await gattServerRx.NotifyValueAsync(buffer).AsTask(cancellationToken);
+            if (result.Status != GattCommunicationStatus.Success)
+                throw new InvalidOperationException($"BLE-Benachrichtigung fehlgeschlagen: {result.Status}");
+            return;
+        }
+
         if (writer is null)
             throw new InvalidOperationException("Keine Bluetooth-Verbindung aktiv.");
 
@@ -331,6 +349,8 @@ public sealed class BluetoothTransport : ITransport
         running = false;
         if (gattServerTx is not null)
             gattServerTx.WriteRequested -= OnGattServerWriteRequested;
+        if (gattServerRx is not null)
+            gattServerRx.SubscribedClientsChanged -= OnGattServerSubscribedClientsChanged;
         try
         {
             gattServer?.StopAdvertising();
