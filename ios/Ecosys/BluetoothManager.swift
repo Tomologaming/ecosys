@@ -31,6 +31,7 @@ final class BluetoothManager: NSObject, ObservableObject {
     private var peripheralService: CBMutableService?
     private var peripheralTxCharacteristic: CBMutableCharacteristic?
     private var peripheralRxCharacteristic: CBMutableCharacteristic?
+    private var hasPeripheralSubscriber = false
 
     override init() {
         super.init()
@@ -67,10 +68,6 @@ final class BluetoothManager: NSObject, ObservableObject {
     }
 
     func sendHello() {
-        guard let txCharacteristic, let connected else {
-            lastMessage = "Kein Gerät verbunden."
-            return
-        }
         let payload: [String: Any] = [
             "protocol": "ecosys/1",
             "type": "hello",
@@ -83,8 +80,20 @@ final class BluetoothManager: NSObject, ObservableObject {
             ]
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
-        connected.writeValue(data, for: txCharacteristic, type: .withResponse)
-        lastMessage = "Hello gesendet"
+
+        if let txCharacteristic, let connected {
+            connected.writeValue(data, for: txCharacteristic, type: .withResponse)
+            lastMessage = "Hello gesendet"
+            return
+        }
+
+        if hasPeripheralSubscriber, let peripheralRxCharacteristic,
+           peripheralManager.updateValue(data, for: peripheralRxCharacteristic, onSubscribedCentrals: nil) {
+            lastMessage = "Hello gesendet"
+            return
+        }
+
+        lastMessage = "Kein Gerät verbunden."
     }
 }
 
@@ -207,12 +216,16 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager,
                            central: CBCentral,
                            didSubscribeTo characteristic: CBCharacteristic) {
+        guard characteristic.uuid == Self.rxUUID else { return }
+        hasPeripheralSubscriber = true
         status = "Windows-Gerät verbunden"
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager,
                            central: CBCentral,
                            didUnsubscribeFrom characteristic: CBCharacteristic) {
+        guard characteristic.uuid == Self.rxUUID else { return }
+        hasPeripheralSubscriber = false
         if connected == nil {
             status = "Bluetooth bereit"
         }
