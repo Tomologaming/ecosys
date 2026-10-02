@@ -12,8 +12,6 @@ struct EcosysDevice: Identifiable {
 }
 
 final class BluetoothManager: NSObject, ObservableObject {
-    // BLE service used by the first iOS implementation. This is intentionally
-    // separate from the Android/Windows Classic RFCOMM UUID.
     static let serviceUUID = CBUUID(string: "6E6F4D4F-0002-4D4F-4D4F-45434F595300")
     static let txUUID = CBUUID(string: "6E6F4D4F-0003-4D4F-4D4F-45434F595300")
     static let rxUUID = CBUUID(string: "6E6F4D4F-0004-4D4F-4D4F-45434F595300")
@@ -40,14 +38,20 @@ final class BluetoothManager: NSObject, ObservableObject {
     }
 
     func scan() {
-        guard central.state == .poweredOn else { return }
+        guard central.state == .poweredOn else {
+            status = "Bluetooth ist nicht verfügbar"
+            return
+        }
         devices.removeAll()
         isScanning = true
         status = "Suche nach Ecosys-Geräten…"
-        central.scanForPeripherals(withServices: [Self.serviceUUID], options: [
+        // Do not filter at the controller level. Some Windows BLE stacks omit the
+        // service UUID from the first advertisement even though the service is
+        // present. We validate the service after discovery instead.
+        central.scanForPeripherals(withServices: nil, options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
             self?.stopScan()
         }
     }
@@ -63,8 +67,9 @@ final class BluetoothManager: NSObject, ObservableObject {
     func connect(to device: EcosysDevice) {
         status = "Verbinde mit \(device.name)…"
         connected = device.peripheral
+        txCharacteristic = nil
         device.peripheral.delegate = self
-        central.connect(device.peripheral)
+        central.connect(device.peripheral, options: [CBConnectPeripheralOptionNotifyOnDisconnectionKey: true])
     }
 
     func sendHello() {
@@ -108,7 +113,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
             status = "Bluetooth ist ausgeschaltet"
         case .unauthorized:
             isReady = false
-            status = "Bluetooth-Berechtigung fehlt"
+            status = "Bluetooth-Berechtigung fehlt – bitte in Einstellungen erlauben"
         case .unsupported:
             isReady = false
             status = "Bluetooth wird nicht unterstützt"
@@ -121,40 +126,92 @@ extension BluetoothManager: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String : Any], rssi RSSI: NSNumber) {
         guard devices.first(where: { $0.id == peripheral.identifier }) == nil else { return }
-        let name = peripheral.name ?? (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? "Ecosys device"
-        devices.append(EcosysDevice(id: peripheral.identifier, name: name, detail: "Bluetooth Low Energy", icon: "antenna.radiowaves.left.and.right", peripheral: peripheral))
+
+        let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+        let hasEcosysService = advertisedServices.contains(Self.serviceUUID)
+        let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let name = peripheral.name ?? localName ?? "Ecosys device"
+
+        // Keep discovery broad for unreliable advertisements, but only expose
+        // devices that identify themselves as Ecosys or advertise our service.
+        let looksLikeEcosys = hasEcosysService ||
+            name.localizedCaseInsensitiveContains("ecosys") ||
+            (localName?.localizedCaseInsensitiveContains("ecosys") ?? false)
+        guard looksLikeEcosys else { return }
+
+        devices.append(EcosysDevice(
+            id: peripheral.identifier,
+            name: name,
+            detail: "Bluetooth Low Energy",
+            icon: "antenna.radiowaves.left.and.right",
+            peripheral: peripheral
+        ))
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        status = "Verbunden mit \(peripheral.name ?? "Ecosys device")"
+        status = "Verbunden mit \(peripheral.name ?? "Ecosys device") – suche Dienste…"
         peripheral.discoverServices([Self.serviceUUID])
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        status = "Verbindung fehlgeschlagen"
+        connected = nil
+        txCharacteristic = nil
+        status = "Verbindung fehlgeschlagen\(error.map { ": \($0.localizedDescription)" } ?? "")"
+    }
+
+    func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
+        guard connected?.identifier == peripheral.identifier else { return }
+        connected = nil
+        txCharacteristic = nil
+        status = error == nil ? "Bluetooth-Verbindung getrennt" : "Bluetooth-Verbindung getrennt: \(error!.localizedDescription)"
     }
 }
 
 extension BluetoothManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let service = peripheral.services?.first(where: { $0.uuid == Self.serviceUUID }) else { return }
+        if let error {
+            status = "BLE-Dienste konnten nicht geladen werden: \(error.localizedDescription)"
+            return
+        }
+        guard let service = peripheral.services?.first(where: { $0.uuid == Self.serviceUUID }) else {
+            status = "Ecosys-BLE-Dienst auf dem Gerät nicht gefunden"
+            return
+        }
         peripheral.discoverCharacteristics([Self.txUUID, Self.rxUUID], for: service)
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        if let error {
+            status = "BLE-Characteristics konnten nicht geladen werden: \(error.localizedDescription)"
+            return
+        }
         txCharacteristic = service.characteristics?.first(where: { $0.uuid == Self.txUUID })
         let rx = service.characteristics?.first(where: { $0.uuid == Self.rxUUID })
+        guard txCharacteristic != nil || rx != nil else {
+            status = "Ecosys-BLE-Characteristics nicht gefunden"
+            return
+        }
         if let rx {
             peripheral.setNotifyValue(true, for: rx)
+        }
+        status = "Verbunden mit \(peripheral.name ?? "Ecosys device")"
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        if let error {
+            status = "BLE-Benachrichtigungen konnten nicht aktiviert werden: \(error.localizedDescription)"
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        if let error {
+            status = "BLE-Empfang fehlgeschlagen: \(error.localizedDescription)"
+            return
+        }
         guard let data = characteristic.value else { return }
         lastMessage = String(data: data, encoding: .utf8) ?? "Nachricht empfangen"
     }
 }
-
 
 extension BluetoothManager: CBPeripheralManagerDelegate {
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
@@ -162,7 +219,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
             publishPeripheralService()
             startAdvertisingIfReady()
         } else if peripheral.state == .unauthorized {
-            status = "Bluetooth-Berechtigung fehlt"
+            status = "Bluetooth-Berechtigung fehlt – bitte in Einstellungen erlauben"
         }
     }
 
