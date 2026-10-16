@@ -1,0 +1,37 @@
+{
+  "name": "Ecosys",
+  "subtitle": "Direkte Verbindung zwischen Windows, iOS und weiteren Geräten",
+  "description": "Ecosys verbindet Geräte direkt miteinander und ermöglicht Dateiübertragungen über Bluetooth.",
+  "iconURL": "https://raw.githubusercontent.com/Tomologaming/ecosys/Safe/icon/ecosys.png",
+  "website": "https://github.com/Tomologaming/ecosys",
+  "apps": [
+    {
+      "name": "Ecosys",
+      "bundleIdentifier": "com.tomologaming.ecosys",
+      "developerName": "Tomologaming",
+      "subtitle": "Dateien direkt zwischen deinen Geräten übertragen",
+      "localizedDescription": "Ecosys verbindet Windows-, iOS-, iPadOS-, Android- und macOS-Geräte. Diese AltStore-Quelle stellt den iOS-Build für die Installation über AltStore Classic bereit.",
+      "iconURL": "https://raw.githubusercontent.com/Tomologaming/ecosys/Safe/icon/ecosys.png",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "buildVersion": "1",
+          "date": "2026-10-17",
+          "localizedDescription": "Erste AltStore-Classic-Verteilungsfassung.",
+          "downloadURL": "https://github.com/Tomologaming/ecosys/releases/download/ios-altstore/Ecosys.ipa",
+          "size": 0,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSBluetoothAlwaysUsageDescription": "Ecosys verwendet Bluetooth, um Geräte direkt miteinander zu verbinden.",
+          "NSBluetoothPeripheralUsageDescription": "Ecosys verwendet Bluetooth für direkte Geräteverbindungen."
+        }
+      }
+    }
+  ],
+  "news": []
+}
