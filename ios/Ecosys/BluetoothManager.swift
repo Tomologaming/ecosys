@@ -33,6 +33,10 @@ final class BluetoothManager: NSObject, ObservableObject {
     private var pendingWriteFrames: [Data] = []
     private var frameMessageID: UInt16 = 1
     private var helloWriteInProgress = false
+    private var incomingFrameBuffer = Data()
+    private var incomingFrameID: UInt16?
+    private var incomingFrameCount: UInt16 = 0
+    private var incomingNextFrame: UInt16 = 0
 
     override init() {
         super.init()
@@ -109,6 +113,41 @@ final class BluetoothManager: NSObject, ObservableObject {
             return
         }
         connected.writeValue(pendingWriteFrames.removeFirst(), for: txCharacteristic, type: .withResponse)
+    }
+
+
+    private func processIncomingData(_ data: Data) {
+        let magic: [UInt8] = [0x45, 0x43, 0x53, 0x31]
+        var message = data
+        if data.count >= 10 && Array(data.prefix(4)) == magic {
+            func readLE(_ offset: Int) -> UInt16 {
+                UInt16(data[offset]) | (UInt16(data[offset + 1]) << 8)
+            }
+            let id = readLE(4)
+            let index = readLE(6)
+            let count = readLE(8)
+            guard count > 0, index < count else { return }
+            if index == 0 {
+                incomingFrameBuffer.removeAll(keepingCapacity: true)
+                incomingFrameID = id
+                incomingFrameCount = count
+                incomingNextFrame = 0
+            }
+            guard incomingFrameID == id, incomingFrameCount == count, incomingNextFrame == index else {
+                incomingFrameBuffer.removeAll(keepingCapacity: false)
+                incomingFrameID = nil
+                return
+            }
+            incomingFrameBuffer.append(data.subdata(in: 10..<data.count))
+            incomingNextFrame += 1
+            guard incomingNextFrame == incomingFrameCount else { return }
+            message = incomingFrameBuffer
+            incomingFrameBuffer.removeAll(keepingCapacity: true)
+            incomingFrameID = nil
+            incomingFrameCount = 0
+            incomingNextFrame = 0
+        }
+        lastMessage = String(data: message, encoding: .utf8) ?? "Nachricht empfangen"
     }
 
     func sendHello() {
@@ -262,7 +301,7 @@ extension BluetoothManager: CBPeripheralDelegate {
             return
         }
         guard let data = characteristic.value else { return }
-        lastMessage = String(data: data, encoding: .utf8) ?? "Nachricht empfangen"
+        processIncomingData(data)
     }
 }
 
@@ -326,7 +365,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
                 peripheral.respond(to: request, withResult: .requestNotSupported)
                 continue
             }
-            lastMessage = String(data: value, encoding: .utf8) ?? "Nachricht empfangen"
+            processIncomingData(value)
             peripheral.respond(to: request, withResult: .success)
         }
     }
