@@ -165,7 +165,7 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.statusLabel.text = "Datei konnte nicht vorbereitet werden: \\(error.localizedDescription)"
+                    self.statusLabel.text = "Datei konnte nicht vorbereitet werden: \(error.localizedDescription)"
                     self.sendButton.isEnabled = false
                 }
             }
