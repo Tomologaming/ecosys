@@ -14,6 +14,8 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
     private var chunkIndex = 0
     private var transferID = UUID().uuidString
     private var isSending = false
+    private var outgoingFrames: [Data] = []
+    private var frameMessageID: UInt16 = 100
     private var filenameField = UITextField()
     private var progressView = UIProgressView(progressViewStyle: .default)
     private var statusLabel = UILabel()
@@ -239,16 +241,41 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
             return
         }
         let maximum = target.maximumWriteValueLength(for: .withResponse)
-        guard data.count <= maximum else {
-            fail("Bluetooth-Nachricht zu groß (\(data.count)/\(maximum) Bytes).")
+        guard maximum > 10 else {
+            fail("Bluetooth-Verbindung unterstützt keine ausreichend großen Nachrichten.")
             return
         }
-        target.writeValue(data, for: tx, type: .withResponse)
+        frameMessageID &+= 1
+        let payloadLimit = maximum - 10
+        let frameCount = max(1, Int(ceil(Double(data.count) / Double(payloadLimit))))
+        guard frameCount <= Int(UInt16.max) else {
+            fail("Die Datei-Nachricht ist zu groß.")
+            return
+        }
+        outgoingFrames = (0..<frameCount).map { index in
+            let start = index * payloadLimit
+            let end = min(start + payloadLimit, data.count)
+            var frame = Data([0x45, 0x43, 0x53, 0x31])
+            func appendLE(_ value: UInt16, to targetData: inout Data) {
+                targetData.append(UInt8(value & 0xff))
+                targetData.append(UInt8((value >> 8) & 0xff))
+            }
+            appendLE(frameMessageID, to: &frame)
+            appendLE(UInt16(index), to: &frame)
+            appendLE(UInt16(frameCount), to: &frame)
+            if start < end { frame.append(data.subdata(in: start..<end)) }
+            return frame
+        }
+        target.writeValue(outgoingFrames.removeFirst(), for: tx, type: .withResponse)
     }
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         guard error == nil else {
             fail("Übertragung fehlgeschlagen: \(error!.localizedDescription)")
+            return
+        }
+        if !outgoingFrames.isEmpty {
+            target.writeValue(outgoingFrames.removeFirst(), for: characteristic, type: .withResponse)
             return
         }
         if chunkIndex == -1 {
