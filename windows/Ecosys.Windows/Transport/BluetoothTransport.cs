@@ -326,7 +326,7 @@ public sealed class BluetoothTransport : ITransport
             BitConverter.GetBytes(messageId).CopyTo(frame, 4);
             BitConverter.GetBytes((ushort)index).CopyTo(frame, 6);
             BitConverter.GetBytes((ushort)count).CopyTo(frame, 8);
-            if (length > 0) Buffer.BlockCopy(data, offset, frame, 10, length);
+            if (length > 0) System.Buffer.BlockCopy(data, offset, frame, 10, length);
             yield return frame;
         }
     }
