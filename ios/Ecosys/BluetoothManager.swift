@@ -249,7 +249,7 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         if let error {
-            status = "Ecosys-BLE-Dienst konnte nicht veröffentlicht werden: \\(error.localizedDescription)"
+            status = "Ecosys-BLE-Dienst konnte nicht veröffentlicht werden: \(error.localizedDescription)"
             peripheralService = nil
             return
         }
