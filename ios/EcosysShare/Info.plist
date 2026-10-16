@@ -9,7 +9,7 @@
   <key>CFBundlePackageType</key><string>XPC!</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>NSBluetoothAlwaysUsageDescription</key><string>Ecosys verwendet Bluetooth, um Dateien direkt an deine Geräte zu übertragen.</string>
+  <key>NSBluetoothAlwaysUsageDescription</key><string>Ecosys verwendet Bluetooth, um Geräte direkt miteinander zu verbinden.</string>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionPointIdentifier</key><string>com.apple.share-services</string>
