@@ -288,6 +288,10 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
             return
         }
         if !outgoingFrames.isEmpty {
+            guard let target else {
+                fail("Bluetooth-Verbindung wurde getrennt.")
+                return
+            }
             target.writeValue(outgoingFrames.removeFirst(), for: characteristic, type: .withResponse)
             return
         }
