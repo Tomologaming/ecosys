@@ -31,6 +31,7 @@
 
 /* PBXFrameworksBuildPhase section */
  300000000000000000000001 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+ 300000000000000000000002 /* Share Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 
 /* PBXGroup section */
  400000000000000000000001 = {isa = PBXGroup; children = (
