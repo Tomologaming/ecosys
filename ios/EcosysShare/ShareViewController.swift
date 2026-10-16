@@ -125,22 +125,29 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
         let type = provider.registeredTypeIdentifiers.first ?? UTType.data.identifier
         provider.loadFileRepresentation(forTypeIdentifier: type) { [weak self] url, error in
             guard let self else { return }
-            DispatchQueue.main.async {
-                guard let url, error == nil else {
+            guard let url, error == nil else {
+                DispatchQueue.main.async {
                     self.statusLabel.text = "Datei konnte nicht geöffnet werden."
                     self.sendButton.isEnabled = false
-                    return
                 }
-                do {
-                    let destination = FileManager.default.temporaryDirectory.appendingPathComponent(url.lastPathComponent)
-                    try? FileManager.default.removeItem(at: destination)
-                    try FileManager.default.copyItem(at: url, to: destination)
+                return
+            }
+
+            // The provider's temporary URL is valid only during this callback.
+            // Copy it before returning, then update the UI on the main queue.
+            let destination = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
+            do {
+                try FileManager.default.copyItem(at: url, to: destination)
+                let size = (try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                DispatchQueue.main.async {
                     self.fileURL = destination
                     self.filenameField.text = url.lastPathComponent
-                    let size = (try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
                     self.statusLabel.text = "Bereit · " + ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
                     self.sendButton.isEnabled = true
-                } catch {
+                }
+            } catch {
+                DispatchQueue.main.async {
                     self.statusLabel.text = "Datei konnte nicht vorbereitet werden: \(error.localizedDescription)"
                     self.sendButton.isEnabled = false
                 }
