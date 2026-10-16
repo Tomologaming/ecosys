@@ -503,9 +503,11 @@ public sealed class BluetoothTransport : ITransport
 
     private void OnBleValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
     {
+        // BLE notifications carry the same ECS1-framed transport packets as GATT writes.
+        // Reassemble and parse them through the shared path instead of treating each
+        // binary frame as standalone UTF-8/JSON (which caused errors like ':' invalid JSON).
         CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out var bytes);
-        var message = System.Text.Encoding.UTF8.GetString(bytes);
-        MessageReceived?.Invoke(this, message);
+        ProcessIncomingBytes(bytes);
     }
 
     private async Task ReadLoopAsync(IInputStream input)
