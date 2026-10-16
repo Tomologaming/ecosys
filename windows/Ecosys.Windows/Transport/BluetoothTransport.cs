@@ -270,7 +270,7 @@ public sealed class BluetoothTransport : ITransport
     {
         if (gattTx is not null)
         {
-            foreach (var frame in FrameMessage(Encoding.UTF8.GetBytes(message), NextFrameId(), 100))
+            foreach (var frame in FrameMessage(Encoding.UTF8.GetBytes(message), NextFrameId(), 10))
             {
                 var buffer = CryptographicBuffer.CreateFromByteArray(frame);
                 var status = await gattTx.WriteValueAsync(buffer, GattWriteOption.WriteWithResponse)
