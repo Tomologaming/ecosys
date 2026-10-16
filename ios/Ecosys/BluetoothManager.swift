@@ -30,6 +30,9 @@ final class BluetoothManager: NSObject, ObservableObject {
     private var peripheralTxCharacteristic: CBMutableCharacteristic?
     private var peripheralRxCharacteristic: CBMutableCharacteristic?
     private var hasPeripheralSubscriber = false
+    private var pendingWriteFrames: [Data] = []
+    private var frameMessageID: UInt16 = 1
+    private var helloWriteInProgress = false
 
     override init() {
         super.init()
@@ -72,6 +75,42 @@ final class BluetoothManager: NSObject, ObservableObject {
         central.connect(device.peripheral, options: [CBConnectPeripheralOptionNotifyOnDisconnectionKey: true])
     }
 
+
+    private static func frame(_ data: Data, messageID: UInt16, payloadLimit: Int) -> [Data] {
+        let safeLimit = max(1, payloadLimit)
+        let count = max(1, Int(ceil(Double(data.count) / Double(safeLimit))))
+        return (0..<count).map { index in
+            let start = index * safeLimit
+            let end = min(start + safeLimit, data.count)
+            var frame = Data([0x45, 0x43, 0x53, 0x31])
+            func appendLE(_ value: UInt16, to data: inout Data) {
+                data.append(UInt8(value & 0xff))
+                data.append(UInt8((value >> 8) & 0xff))
+            }
+            appendLE(messageID, to: &frame)
+            appendLE(UInt16(index), to: &frame)
+            appendLE(UInt16(count), to: &frame)
+            if start < end { frame.append(data.subdata(in: start..<end)) }
+            return frame
+        }
+    }
+
+    private func writeNextHelloFrame() {
+        guard let connected, let txCharacteristic else {
+            helloWriteInProgress = false
+            lastMessage = "Bluetooth-Verbindung wurde getrennt."
+            return
+        }
+        guard !pendingWriteFrames.isEmpty else {
+            helloWriteInProgress = false
+            lastMessage = "Hello erfolgreich gesendet."
+            status = "Hello erfolgreich gesendet."
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            return
+        }
+        connected.writeValue(pendingWriteFrames.removeFirst(), for: txCharacteristic, type: .withResponse)
+    }
+
     func sendHello() {
         let payload: [String: Any] = [
             "protocol": "ecosys/1",
@@ -86,19 +125,19 @@ final class BluetoothManager: NSObject, ObservableObject {
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
 
-        if let txCharacteristic, let connected {
-            connected.writeValue(data, for: txCharacteristic, type: .withResponse)
-            lastMessage = "Hello gesendet"
+        guard let txCharacteristic, let connected else {
+            lastMessage = "Kein Windows-Gerät verbunden. Bitte zuerst verbinden."
+            status = lastMessage ?? status
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
             return
         }
-
-        if hasPeripheralSubscriber, let peripheralRxCharacteristic,
-           peripheralManager.updateValue(data, for: peripheralRxCharacteristic, onSubscribedCentrals: nil) {
-            lastMessage = "Hello gesendet"
-            return
-        }
-
-        lastMessage = "Kein Gerät verbunden."
+        guard !helloWriteInProgress else { return }
+        helloWriteInProgress = true
+        frameMessageID &+= 1
+        pendingWriteFrames = Self.frame(data, messageID: frameMessageID,
+                                        payloadLimit: max(1, connected.maximumWriteValueLength(for: .withResponse) - 10))
+        lastMessage = "Sende Hello …"
+        writeNextHelloFrame()
     }
 }
 
@@ -196,6 +235,19 @@ extension BluetoothManager: CBPeripheralDelegate {
             peripheral.setNotifyValue(true, for: rx)
         }
         status = "Verbunden mit \(peripheral.name ?? "Ecosys device")"
+    }
+
+    func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard characteristic.uuid == Self.txUUID, helloWriteInProgress else { return }
+        if let error {
+            helloWriteInProgress = false
+            pendingWriteFrames.removeAll()
+            lastMessage = "Hello fehlgeschlagen: \(error.localizedDescription)"
+            status = lastMessage ?? status
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            return
+        }
+        writeNextHelloFrame()
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
