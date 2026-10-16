@@ -35,6 +35,7 @@ public sealed class BluetoothTransport : ITransport
     private int incomingFileExpectedChunks;
     private int incomingFileNextChunk;
     private long incomingFileExpectedSize;
+    private ushort outgoingFrameId = 500;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? MessageReceived;
@@ -269,25 +270,31 @@ public sealed class BluetoothTransport : ITransport
     {
         if (gattTx is not null)
         {
-            var buffer = CryptographicBuffer.ConvertStringToBinary(message, BinaryStringEncoding.Utf8);
-            var status = await gattTx.WriteValueAsync(buffer, GattWriteOption.WriteWithResponse)
-                .AsTask(cancellationToken);
-            if (status != GattCommunicationStatus.Success)
-                throw new InvalidOperationException($"BLE-Senden fehlgeschlagen: {status}");
+            foreach (var frame in FrameMessage(Encoding.UTF8.GetBytes(message), NextFrameId(), 100))
+            {
+                var buffer = CryptographicBuffer.CreateFromByteArray(frame);
+                var status = await gattTx.WriteValueAsync(buffer, GattWriteOption.WriteWithResponse)
+                    .AsTask(cancellationToken);
+                if (status != GattCommunicationStatus.Success)
+                    throw new InvalidOperationException($"BLE-Senden fehlgeschlagen: {status}");
+            }
             return;
         }
 
         if (gattServerRx is not null && gattServerRx.SubscribedClients.Count > 0)
         {
-            var buffer = CryptographicBuffer.ConvertStringToBinary(message, BinaryStringEncoding.Utf8);
-            var results = await gattServerRx.NotifyValueAsync(buffer).AsTask(cancellationToken);
-            var failures = results
-                .Where(result => result.Status != GattCommunicationStatus.Success)
-                .Select(result => result.Status)
-                .ToArray();
-            if (failures.Length > 0)
-                throw new InvalidOperationException(
-                    $"BLE-Benachrichtigung fehlgeschlagen: {string.Join(", ", failures)}");
+            foreach (var frame in FrameMessage(Encoding.UTF8.GetBytes(message), NextFrameId(), 100))
+            {
+                var buffer = CryptographicBuffer.CreateFromByteArray(frame);
+                var results = await gattServerRx.NotifyValueAsync(buffer).AsTask(cancellationToken);
+                var failures = results
+                    .Where(result => result.Status != GattCommunicationStatus.Success)
+                    .Select(result => result.Status)
+                    .ToArray();
+                if (failures.Length > 0)
+                    throw new InvalidOperationException(
+                        $"BLE-Benachrichtigung fehlgeschlagen: {string.Join(", ", failures)}");
+            }
             return;
         }
 
@@ -296,6 +303,32 @@ public sealed class BluetoothTransport : ITransport
 
         writer.WriteString(message + "\n");
         await writer.StoreAsync().AsTask(cancellationToken);
+    }
+
+
+    private ushort NextFrameId()
+    {
+        outgoingFrameId++;
+        return outgoingFrameId;
+    }
+
+    private static IEnumerable<byte[]> FrameMessage(byte[] data, ushort messageId, int payloadLimit)
+    {
+        var count = Math.Max(1, (int)Math.Ceiling(data.Length / (double)payloadLimit));
+        if (count > ushort.MaxValue)
+            throw new InvalidOperationException("BLE-Nachricht ist zu groß.");
+        for (var index = 0; index < count; index++)
+        {
+            var offset = index * payloadLimit;
+            var length = Math.Min(payloadLimit, data.Length - offset);
+            var frame = new byte[10 + length];
+            frame[0] = 0x45; frame[1] = 0x43; frame[2] = 0x53; frame[3] = 0x31;
+            BitConverter.GetBytes(messageId).CopyTo(frame, 4);
+            BitConverter.GetBytes((ushort)index).CopyTo(frame, 6);
+            BitConverter.GetBytes((ushort)count).CopyTo(frame, 8);
+            if (length > 0) Buffer.BlockCopy(data, offset, frame, 10, length);
+            yield return frame;
+        }
     }
 
     public async Task DisconnectAsync()
