@@ -39,12 +39,14 @@ sealed class EcosysForm : Form
     readonly Button sendHelloButton = new();
     readonly Label connectionLabel = new();
     readonly Label messageLabel = new();
+    readonly ProgressBar transferProgress = new();
 
     static readonly Color Page = Color.FromArgb(245, 247, 249);
     static readonly Color Ink = Color.FromArgb(25, 35, 45);
     static readonly Color Muted = Color.FromArgb(90, 105, 115);
-    static readonly Color Blue = Color.RoyalBlue;
-    static readonly Color Green = Color.FromArgb(35, 145, 85);
+    static readonly Color Blue = Color.FromArgb(42, 120, 235);
+    static readonly Color Green = Color.FromArgb(35, 195, 145);
+    static readonly Color Navy = Color.FromArgb(16, 29, 48);
 
     public EcosysForm()
     {
@@ -63,12 +65,13 @@ sealed class EcosysForm : Form
             BackColor = Page,
             Padding = new Padding(24),
             ColumnCount = 1,
-            RowCount = 5
+            RowCount = 6
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         Controls.Add(root);
@@ -79,7 +82,9 @@ sealed class EcosysForm : Form
             AutoSize = true,
             ColumnCount = 2,
             RowCount = 2,
-            Margin = new Padding(0, 0, 0, 18)
+            Margin = new Padding(0, 0, 0, 18),
+            Padding = new Padding(18),
+            BackColor = Navy
         };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -89,7 +94,7 @@ sealed class EcosysForm : Form
             Text = "Ecosys",
             AutoSize = true,
             Font = new Font("Segoe UI Semibold", 24F),
-            ForeColor = Ink,
+            ForeColor = Color.White,
             Margin = new Padding(0, 0, 0, 2)
         };
         header.Controls.Add(title, 0, 0);
@@ -99,7 +104,7 @@ sealed class EcosysForm : Form
             Text = "Direkte Bluetooth-Verbindung zwischen deinen Geräten",
             AutoSize = true,
             Font = new Font("Segoe UI", 10F),
-            ForeColor = Muted,
+            ForeColor = Color.FromArgb(190, 205, 220),
             Margin = new Padding(0, 0, 0, 0)
         };
         header.Controls.Add(subtitle, 0, 1);
@@ -113,6 +118,9 @@ sealed class EcosysForm : Form
             Margin = new Padding(12, 3, 0, 0)
         };
         StyleSecondaryButton(settingsButton);
+        settingsButton.BackColor = Color.FromArgb(31, 49, 72);
+        settingsButton.ForeColor = Color.White;
+        settingsButton.FlatAppearance.BorderColor = Color.FromArgb(70, 91, 116);
         settingsButton.Click += (_, _) => OpenSettings("ms-settings:bluetooth");
         header.Controls.Add(settingsButton, 1, 0);
         header.SetRowSpan(settingsButton, 2);
@@ -245,6 +253,16 @@ sealed class EcosysForm : Form
         messageLabel.Font = new Font("Segoe UI", 9F);
         messageLabel.ForeColor = Muted;
         root.Controls.Add(messageLabel, 0, 4);
+
+        transferProgress.Dock = DockStyle.Top;
+        transferProgress.Height = 7;
+        transferProgress.Minimum = 0;
+        transferProgress.Maximum = 100;
+        transferProgress.Value = 0;
+        transferProgress.Style = ProgressBarStyle.Continuous;
+        transferProgress.Visible = false;
+        transferProgress.Margin = new Padding(0, 2, 0, 0);
+        root.Controls.Add(transferProgress, 0, 5);
 
         transport.StatusChanged += (_, message) => SetStatus(message);
         transport.DevicesChanged += (_, devices) => ShowDevices(devices);
@@ -444,6 +462,28 @@ sealed class EcosysForm : Form
 
         bluetoothStatusLabel.Text = message;
         messageLabel.Text = message;
+        if (message.StartsWith("Empfange ", StringComparison.OrdinalIgnoreCase))
+        {
+            var marker = message.LastIndexOf('%');
+            var numberStart = marker > 0 ? message.LastIndexOf(' ', marker - 1) + 1 : -1;
+            if (numberStart >= 0 && marker > numberStart &&
+                int.TryParse(message[numberStart..marker], out var percent))
+            {
+                transferProgress.Visible = true;
+                transferProgress.Value = Math.Clamp(percent, 0, 100);
+            }
+        }
+        else if (message.StartsWith("Datei empfangen und gespeichert", StringComparison.OrdinalIgnoreCase))
+        {
+            transferProgress.Visible = true;
+            transferProgress.Value = 100;
+        }
+        else if (message.Contains("fehlgeschlagen", StringComparison.OrdinalIgnoreCase) ||
+                 message.Contains("unterbrochen", StringComparison.OrdinalIgnoreCase))
+        {
+            transferProgress.Visible = false;
+            transferProgress.Value = 0;
+        }
     }
 
     static void StylePrimaryButton(Button button)
