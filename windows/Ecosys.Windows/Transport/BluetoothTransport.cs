@@ -148,14 +148,16 @@ public sealed class BluetoothTransport : ITransport
         var classic = await classicTask;
         var ble = await bleTask;
 
+        // Both selectors are scoped to Ecosys' private RFCOMM/BLE service UUIDs.
+        // Keep identities distinct: two legitimate devices may share the same display name.
         var result = classic
             .Select(d => new BluetoothDeviceInfo(
                 "rfcomm:" + d.Id,
-                string.IsNullOrWhiteSpace(d.Name) ? "Unbekanntes Gerät" : d.Name))
+                string.IsNullOrWhiteSpace(d.Name) ? "Ecosys-Gerät" : d.Name))
             .Concat(ble.Select(d => new BluetoothDeviceInfo(
                 "gatt:" + d.Id,
-                string.IsNullOrWhiteSpace(d.Name) ? "BLE-Gerät" : d.Name)))
-            .GroupBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+                string.IsNullOrWhiteSpace(d.Name) ? "Ecosys-BLE-Gerät" : d.Name)))
+            .GroupBy(d => d.Id, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
 
@@ -224,7 +226,9 @@ public sealed class BluetoothTransport : ITransport
         var id = deviceInfo.Id["gatt:".Length..];
         StatusChanged?.Invoke(this, $"Verbinde per BLE mit {deviceInfo.Name} …");
 
-        gattService = await GattDeviceService.FromIdAsync(id);
+        // Force a fresh GATT lookup. Windows can retain stale service/characteristic
+        // metadata between scans, which otherwise makes valid iOS services appear missing.
+        gattService = await GattDeviceService.FromIdAsync(id, BluetoothCacheMode.Uncached);
         if (gattService is null)
             throw new InvalidOperationException("Der Ecosys-BLE-Dienst ist nicht mehr verfügbar.");
 
@@ -233,13 +237,19 @@ public sealed class BluetoothTransport : ITransport
             throw new UnauthorizedAccessException(
                 $"Windows hat den Zugriff auf den BLE-Dienst nicht freigegeben ({access}).");
 
-        var characteristicsResult = await gattService.GetCharacteristicsAsync();
+        var characteristicsResult = await gattService.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+        if (characteristicsResult.Status != GattCommunicationStatus.Success)
+            throw new InvalidOperationException(
+                $"Windows konnte die BLE-Characteristics nicht lesen ({characteristicsResult.Status}).");
+
         var characteristics = characteristicsResult.Characteristics;
         gattTx = characteristics.FirstOrDefault(c => c.Uuid == BluetoothTransportUuids.BleTxUuid);
         gattRx = characteristics.FirstOrDefault(c => c.Uuid == BluetoothTransportUuids.BleRxUuid);
 
         if (gattTx is null)
-            throw new InvalidOperationException("Die BLE-TX-Characteristic wurde nicht gefunden.");
+            throw new InvalidOperationException(
+                $"Der Ecosys-BLE-Dienst wurde gefunden, aber TX ({BluetoothTransportUuids.BleTxUuid}) fehlt. " +
+                $"Gefundene Characteristics: {string.Join(", ", characteristics.Select(c => c.Uuid))}");
 
         if (gattRx is not null)
         {
