@@ -1,6 +1,11 @@
 name: Build Windows Client
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "windows/**"
+      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
     inputs:
       build_name:
@@ -36,7 +41,7 @@ jobs:
       - name: Create ZIP
         shell: pwsh
         env:
-          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NAME: ${{ inputs.build_name || 'Ecosys-windows' }}
         run: Compress-Archive -Path dist/* -DestinationPath "${env:BUILD_NAME}.zip"
 
       - name: Upload Windows build
