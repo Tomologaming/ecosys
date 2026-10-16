@@ -116,18 +116,34 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
     }
 
     private func loadSharedFile() {
-        guard let item = extensionContext?.inputItems.first as? NSExtensionItem,
-              let provider = item.attachments?.first else {
+        // Share sheets can provide several representations for the same photo/video.
+        // Prefer public media/file types instead of blindly taking the provider's
+        // first (sometimes app-private) registered identifier.
+        let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
+            .flatMap { $0.attachments ?? [] }
+        guard let provider = providers.first else {
             statusLabel.text = "Keine Datei zum Teilen erhalten."
             sendButton.isEnabled = false
             return
         }
-        let type = provider.registeredTypeIdentifiers.first ?? UTType.data.identifier
-        provider.loadFileRepresentation(forTypeIdentifier: type) { [weak self] url, error in
+
+        let identifiers = provider.registeredTypeIdentifiers
+        let preferredType = identifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .movie)
+        }) ?? identifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .image)
+        }) ?? identifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .fileURL) || type.conforms(to: .data) || type.conforms(to: .content)
+        }) ?? UTType.data.identifier
+
+        provider.loadFileRepresentation(forTypeIdentifier: preferredType) { [weak self] url, error in
             guard let self else { return }
             guard let url, error == nil else {
                 DispatchQueue.main.async {
-                    self.statusLabel.text = "Datei konnte nicht geöffnet werden."
+                    self.statusLabel.text = "Foto/Video konnte nicht geladen werden. Bitte teile es erneut aus Fotos oder Dateien."
                     self.sendButton.isEnabled = false
                 }
                 return
@@ -140,9 +156,10 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
             do {
                 try FileManager.default.copyItem(at: url, to: destination)
                 let size = (try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                let filename = url.lastPathComponent
                 DispatchQueue.main.async {
                     self.fileURL = destination
-                    self.filenameField.text = url.lastPathComponent
+                    self.filenameField.text = filename
                     self.statusLabel.text = "Bereit · " + ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
                     self.sendButton.isEnabled = true
                 }
