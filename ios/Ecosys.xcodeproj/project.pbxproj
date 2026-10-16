@@ -54,10 +54,8 @@
  800000000000000000000002
  ); buildRules = (); dependencies = (); name = Ecosys; productName = Ecosys; productReference = 200000000000000000000005; productType = "com.apple.product-type.application"; dependencies = (500000000000000000000004, ); };
 
- 500000000000000000000002 /* EcosysShare */ = {isa = PBXNativeTarget; buildConfigurationList = 700000000000000000000003; buildPhases = (300000000000000000000002, 600000000000000000000003, 800000000000000000000003, ); buildRules = (); dependencies = (500000000000000000000003, ); name = EcosysShare; productName = EcosysShare; productReference = 200000000000000000000008; productType = "com.apple.product-type.app-extension"; };
+ 500000000000000000000002 /* EcosysShare */ = {isa = PBXNativeTarget; buildConfigurationList = 700000000000000000000003; buildPhases = (300000000000000000000002, 600000000000000000000003, 800000000000000000000003, ); buildRules = (); dependencies = (); name = EcosysShare; productName = EcosysShare; productReference = 200000000000000000000008; productType = "com.apple.product-type.app-extension"; };
 500000000000000000000005 /* Share target proxy */ = {isa = PBXContainerItemProxy; containerPortal = 600000000000000000000002; proxyType = 1; remoteGlobalIDString = 500000000000000000000002; remoteInfo = EcosysShare; };
- 500000000000000000000003 /* Share target dependency */ = {isa = PBXTargetDependency; target = 500000000000000000000001; targetProxy = 500000000000000000000006; };
- 500000000000000000000006 /* App target proxy */ = {isa = PBXContainerItemProxy; containerPortal = 600000000000000000000002; proxyType = 1; remoteGlobalIDString = 500000000000000000000001; remoteInfo = Ecosys; };
  500000000000000000000004 /* App depends on Share */ = {isa = PBXTargetDependency; target = 500000000000000000000002; targetProxy = 500000000000000000000005; };
 /* End PBXNativeTarget section */
 
