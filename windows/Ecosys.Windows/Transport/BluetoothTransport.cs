@@ -267,9 +267,14 @@ public sealed class BluetoothTransport : ITransport
         if (gattServerRx is not null && gattServerRx.SubscribedClients.Count > 0)
         {
             var buffer = CryptographicBuffer.ConvertStringToBinary(message, BinaryStringEncoding.Utf8);
-            var result = await gattServerRx.NotifyValueAsync(buffer).AsTask(cancellationToken);
-            if (result.Status != GattCommunicationStatus.Success)
-                throw new InvalidOperationException($"BLE-Benachrichtigung fehlgeschlagen: {result.Status}");
+            var results = await gattServerRx.NotifyValueAsync(buffer).AsTask(cancellationToken);
+            var failures = results
+                .Where(result => result.Status != GattCommunicationStatus.Success)
+                .Select(result => result.Status)
+                .ToArray();
+            if (failures.Length > 0)
+                throw new InvalidOperationException(
+                    $"BLE-Benachrichtigung fehlgeschlagen: {string.Join(", ", failures)}");
             return;
         }
 
