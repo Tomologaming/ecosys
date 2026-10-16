@@ -218,7 +218,6 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
         if peripheral.state == .poweredOn {
             publishPeripheralService()
-            startAdvertisingIfReady()
         } else if peripheral.state == .unauthorized {
             status = "Bluetooth-Berechtigung fehlt – bitte in Einstellungen erlauben"
         }
@@ -246,6 +245,15 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
         peripheralRxCharacteristic = rx
         peripheralService = service
         peripheralManager.add(service)
+    }
+
+    func peripheralManager(_ peripheral: CBPeripheralManager, didAdd service: CBService, error: Error?) {
+        if let error {
+            status = "Ecosys-BLE-Dienst konnte nicht veröffentlicht werden: \\(error.localizedDescription)"
+            peripheralService = nil
+            return
+        }
+        startAdvertisingIfReady()
     }
 
     private func startAdvertisingIfReady() {
