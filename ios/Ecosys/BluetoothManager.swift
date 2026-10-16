@@ -45,10 +45,10 @@ final class BluetoothManager: NSObject, ObservableObject {
         devices.removeAll()
         isScanning = true
         status = "Suche nach Ecosys-Geräten…"
-        // Do not filter at the controller level. Some Windows BLE stacks omit the
-        // service UUID from the first advertisement even though the service is
-        // present. We validate the service after discovery instead.
-        central.scanForPeripherals(withServices: [Self.serviceUUID], options: [
+        // Some Windows BLE stacks omit the service UUID from the first advertisement.
+        // Scan broadly, then only add devices advertising the Ecosys service UUID
+        // or the explicit Ecosys local name in didDiscover.
+        central.scanForPeripherals(withServices: nil, options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
