@@ -1,4 +1,6 @@
 using Ecosys.Windows.Protocol;
+using System.Text;
+using System.Text.Json;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Bluetooth.Rfcomm;
@@ -22,6 +24,17 @@ public sealed class BluetoothTransport : ITransport
     private GattServiceProvider? gattServer;
     private GattLocalCharacteristic? gattServerTx;
     private GattLocalCharacteristic? gattServerRx;
+    private readonly object frameLock = new();
+    private MemoryStream? framedMessageBuffer;
+    private ushort activeFrameId;
+    private ushort expectedFrameIndex;
+    private ushort expectedFrameCount;
+    private MemoryStream? incomingFileStream;
+    private string? incomingFileTransferId;
+    private string? incomingFileName;
+    private int incomingFileExpectedChunks;
+    private int incomingFileNextChunk;
+    private long incomingFileExpectedSize;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? MessageReceived;
@@ -106,7 +119,7 @@ public sealed class BluetoothTransport : ITransport
                 return;
 
             CryptographicBuffer.CopyToByteArray(request.Value, out var bytes);
-            MessageReceived?.Invoke(this, System.Text.Encoding.UTF8.GetString(bytes));
+            ProcessIncomingBytes(bytes);
             if (request.Option == GattWriteOption.WriteWithResponse)
                 request.Respond();
         }
@@ -311,6 +324,148 @@ public sealed class BluetoothTransport : ITransport
         writer = null;
         socket?.Dispose();
         socket = null;
+    }
+
+
+    private void ProcessIncomingBytes(byte[] bytes)
+    {
+        byte[]? completeMessage = null;
+        lock (frameLock)
+        {
+            if (bytes.Length >= 10 && bytes[0] == 0x45 && bytes[1] == 0x43 &&
+                bytes[2] == 0x53 && bytes[3] == 0x31)
+            {
+                var id = BitConverter.ToUInt16(bytes, 4);
+                var index = BitConverter.ToUInt16(bytes, 6);
+                var count = BitConverter.ToUInt16(bytes, 8);
+                if (count == 0 || index >= count)
+                {
+                    framedMessageBuffer?.Dispose();
+                    framedMessageBuffer = null;
+                    StatusChanged?.Invoke(this, "Ungültiger Bluetooth-Datenrahmen empfangen.");
+                    return;
+                }
+                if (index == 0)
+                {
+                    framedMessageBuffer?.Dispose();
+                    framedMessageBuffer = new MemoryStream();
+                    activeFrameId = id;
+                    expectedFrameIndex = 0;
+                    expectedFrameCount = count;
+                }
+                if (framedMessageBuffer is null || id != activeFrameId ||
+                    count != expectedFrameCount || index != expectedFrameIndex)
+                {
+                    framedMessageBuffer?.Dispose();
+                    framedMessageBuffer = null;
+                    StatusChanged?.Invoke(this, "Bluetooth-Datenrahmen unvollständig; bitte erneut senden.");
+                    return;
+                }
+                framedMessageBuffer.Write(bytes, 10, bytes.Length - 10);
+                expectedFrameIndex++;
+                if (expectedFrameIndex == expectedFrameCount)
+                {
+                    completeMessage = framedMessageBuffer.ToArray();
+                    framedMessageBuffer.Dispose();
+                    framedMessageBuffer = null;
+                }
+            }
+            else
+            {
+                completeMessage = bytes;
+            }
+        }
+
+        if (completeMessage is not null)
+            ProcessIncomingMessage(Encoding.UTF8.GetString(completeMessage));
+    }
+
+    private void ProcessIncomingMessage(string message)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(message);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement))
+            {
+                MessageReceived?.Invoke(this, message);
+                return;
+            }
+
+            var type = typeElement.GetString();
+            switch (type)
+            {
+                case "hello":
+                    var deviceName = root.TryGetProperty("payload", out var helloPayload) &&
+                                     helloPayload.TryGetProperty("deviceName", out var helloName)
+                        ? helloName.GetString() : "iPhone";
+                    StatusChanged?.Invoke(this, $"Hello von {deviceName ?? "iPhone"} empfangen.");
+                    MessageReceived?.Invoke(this, message);
+                    return;
+
+                case "file.start":
+                    incomingFileTransferId = root.GetProperty("transferId").GetString();
+                    incomingFileName = Path.GetFileName(root.GetProperty("fileName").GetString() ?? "Datei");
+                    incomingFileExpectedSize = root.GetProperty("size").GetInt64();
+                    incomingFileExpectedChunks = root.GetProperty("chunks").GetInt32();
+                    incomingFileNextChunk = 0;
+                    incomingFileStream?.Dispose();
+                    incomingFileStream = new MemoryStream();
+                    StatusChanged?.Invoke(this, $"Datei wird empfangen: {incomingFileName}");
+                    return;
+
+                case "file.chunk":
+                    if (incomingFileStream is null ||
+                        root.GetProperty("transferId").GetString() != incomingFileTransferId)
+                        throw new InvalidOperationException("Dateiübertragung ist nicht initialisiert.");
+                    var chunkIndex = root.GetProperty("index").GetInt32();
+                    if (chunkIndex != incomingFileNextChunk)
+                        throw new InvalidOperationException("Datei-Datenblock fehlt oder ist doppelt.");
+                    var chunk = Convert.FromBase64String(root.GetProperty("data").GetString() ?? "");
+                    incomingFileStream.Write(chunk, 0, chunk.Length);
+                    incomingFileNextChunk++;
+                    if (incomingFileExpectedChunks > 0)
+                    {
+                        var percent = Math.Min(99, incomingFileNextChunk * 100 / incomingFileExpectedChunks);
+                        StatusChanged?.Invoke(this, $"Empfange {incomingFileName} … {percent}%");
+                    }
+                    return;
+
+                case "file.complete":
+                    if (incomingFileStream is null ||
+                        root.GetProperty("transferId").GetString() != incomingFileTransferId)
+                        throw new InvalidOperationException("Dateiübertragung ist nicht initialisiert.");
+                    if (incomingFileNextChunk != incomingFileExpectedChunks ||
+                        incomingFileStream.Length != incomingFileExpectedSize)
+                        throw new InvalidOperationException("Die empfangene Datei ist unvollständig.");
+                    var downloads = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "Ecosys");
+                    Directory.CreateDirectory(downloads);
+                    var safeName = Path.GetFileName(string.IsNullOrWhiteSpace(incomingFileName) ? "Datei" : incomingFileName);
+                    var destination = Path.Combine(downloads, safeName);
+                    if (File.Exists(destination))
+                    {
+                        var baseName = Path.GetFileNameWithoutExtension(safeName);
+                        var extension = Path.GetExtension(safeName);
+                        destination = Path.Combine(downloads, $"{baseName} ({DateTime.Now:yyyyMMdd-HHmmss}){extension}");
+                    }
+                    File.WriteAllBytes(destination, incomingFileStream.ToArray());
+                    incomingFileStream.Dispose();
+                    incomingFileStream = null;
+                    incomingFileTransferId = null;
+                    StatusChanged?.Invoke(this, $"Datei empfangen und gespeichert: {destination}");
+                    MessageReceived?.Invoke(this, $"Datei empfangen: {safeName}");
+                    return;
+
+                default:
+                    MessageReceived?.Invoke(this, message);
+                    return;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusChanged?.Invoke(this, $"Bluetooth-Nachricht konnte nicht verarbeitet werden: {ex.Message}");
+        }
     }
 
     private void OnBleValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
