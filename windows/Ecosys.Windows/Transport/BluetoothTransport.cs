@@ -1,5 +1,6 @@
 using Ecosys.Windows.Protocol;
 using Windows.Devices.Bluetooth;
+using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Bluetooth.Rfcomm;
 using Windows.Devices.Enumeration;
@@ -22,6 +23,7 @@ public sealed class BluetoothTransport : ITransport
     private GattServiceProvider? gattServer;
     private GattLocalCharacteristic? gattServerTx;
     private GattLocalCharacteristic? gattServerRx;
+    private BluetoothLEAdvertisementPublisher? discoveryPublisher;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? MessageReceived;
@@ -75,6 +77,15 @@ public sealed class BluetoothTransport : ITransport
                 IsConnectable = true
             };
             gattServer.StartAdvertising(advertisingParameters);
+
+            // GattServiceProvider advertises the GATT service, but Windows does not
+            // let the app set its local advertisement name through that API.
+            // Publish the Ecosys name separately so iOS can identify this app even
+            // when the service UUID is omitted from an advertisement packet.
+            discoveryPublisher = new BluetoothLEAdvertisementPublisher();
+            discoveryPublisher.Advertisement.LocalName = "Ecosys";
+            discoveryPublisher.Start();
+
             StatusChanged?.Invoke(this, "Ecosys BLE wird für andere Geräte beworben");
         }
         catch (Exception ex)
@@ -355,10 +366,12 @@ public sealed class BluetoothTransport : ITransport
         try
         {
             gattServer?.StopAdvertising();
+            discoveryPublisher?.Stop();
         }
         catch
         {
         }
+        discoveryPublisher = null;
         gattServer = null;
         gattServerTx = null;
         gattServerRx = null;

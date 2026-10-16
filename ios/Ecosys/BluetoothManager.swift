@@ -130,14 +130,15 @@ extension BluetoothManager: CBCentralManagerDelegate {
         let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
         let hasEcosysService = advertisedServices.contains(Self.serviceUUID)
         let localName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
-        let name = peripheral.name ?? localName ?? "Ecosys device"
+        // Prefer the advertised local name: peripheral.name may be the user's
+        // system Bluetooth name (for example, "Momo's iPhone"), not the app name.
+        let advertisedName = localName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = advertisedName?.isEmpty == false ? advertisedName! : (peripheral.name ?? "Ecosys device")
 
-        // Keep discovery broad for unreliable advertisements, but only expose
-        // devices that identify themselves as Ecosys or advertise our service.
-        let looksLikeEcosys = hasEcosysService ||
-            name.localizedCaseInsensitiveContains("ecosys") ||
-            (localName?.localizedCaseInsensitiveContains("ecosys") ?? false)
-        guard looksLikeEcosys else { return }
+        // Only show devices that advertise our private service UUID or explicitly
+        // identify this app. Windows publishes the "Ecosys" local name for discovery.
+        let hasEcosysName = advertisedName?.localizedCaseInsensitiveCompare("Ecosys") == .orderedSame
+        guard hasEcosysService || hasEcosysName else { return }
 
         devices.append(EcosysDevice(
             id: peripheral.identifier,
