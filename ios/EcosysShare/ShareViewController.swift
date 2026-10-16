@@ -92,11 +92,12 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
         sendButton.backgroundColor = .systemBlue
         sendButton.tintColor = .white
         sendButton.layer.cornerRadius = 15
+        sendButton.isEnabled = false
         sendButton.heightAnchor.constraint(equalToConstant: 52).isActive = true
         sendButton.addTarget(self, action: #selector(startTransfer), for: .touchUpInside)
 
         let cancelButton = UIButton(type: .system)
-        cancelButton.setTitle("Abbrechen", for: .normal)
+        cancelButton.setTitle("Schließen", for: .normal)
         cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
 
         root.addArrangedSubview(icon)
@@ -138,6 +139,7 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
                     self.filenameField.text = url.lastPathComponent
                     let size = (try? destination.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
                     self.statusLabel.text = "Bereit · " + ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+                    self.sendButton.isEnabled = true
                 } catch {
                     self.statusLabel.text = "Datei konnte nicht vorbereitet werden: \(error.localizedDescription)"
                     self.sendButton.isEnabled = false
@@ -148,6 +150,10 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
 
     @objc private func startTransfer() {
         guard !isSending, let fileURL else { return }
+        guard central.state == .poweredOn else {
+            fail("Bluetooth ist nicht bereit. Bitte Bluetooth aktivieren und erneut versuchen.")
+            return
+        }
         let name = (filenameField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
             statusLabel.text = "Bitte einen Dateinamen eingeben."
@@ -284,8 +290,8 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
             haptics.impactOccurred()
             isSending = false
             sendButton.isEnabled = true
-            sendButton.setTitle("Erneut senden", for: .normal)
-            extensionContext?.completeRequest(returningItems: nil)
+            sendButton.setTitle("Gesendet ✓", for: .normal)
+            sendButton.isEnabled = false
             return
         }
         if chunkIndex == 0 {
