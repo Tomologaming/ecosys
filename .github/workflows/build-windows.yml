@@ -52,6 +52,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.build_name || 'Ecosys-windows' }}
-          path: "${{ inputs.build_name }}.zip"
+          path: "${{ inputs.build_name || 'Ecosys-windows' }}.zip"
           if-no-files-found: error
           retention-days: 30
