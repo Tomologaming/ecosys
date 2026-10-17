@@ -1,6 +1,15 @@
 name: Build Windows Client
 
 on:
+  pull_request:
+    paths:
+      - "windows/**"
+      - ".github/workflows/build-windows.yml"
+  push:
+    branches: [Safe]
+    paths:
+      - "windows/**"
+      - ".github/workflows/build-windows.yml"
   workflow_dispatch:
     inputs:
       build_name:
@@ -36,13 +45,13 @@ jobs:
       - name: Create ZIP
         shell: pwsh
         env:
-          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NAME: ${{ inputs.build_name || 'Ecosys-windows' }}
         run: Compress-Archive -Path dist/* -DestinationPath "${env:BUILD_NAME}.zip"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.build_name }}
+          name: ${{ inputs.build_name || 'Ecosys-windows' }}
           path: "${{ inputs.build_name }}.zip"
           if-no-files-found: error
           retention-days: 30
