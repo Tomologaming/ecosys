@@ -57,7 +57,7 @@ jobs:
           test -d "$APP/PlugIns/EcosysShare.appex"
           test -f "$APP/PlugIns/EcosysShare.appex/EcosysShare"
           find "$APP" -type d -name "_CodeSignature" -prune -exec rm -rf {} +
-          find "$APP" -type f -perm -111 -exec codesign --remove-signature {} + 2>/dev/null || true
+          find "$APP" -type f -perm -111 -exec codesign --remove-signature {} \\; 2>/dev/null || true
           mkdir -p build/Payload
           cp -R "$APP" build/Payload/Ecosys.app
           cd build
