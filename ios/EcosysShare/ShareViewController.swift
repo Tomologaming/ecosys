@@ -121,7 +121,14 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
         // first (sometimes app-private) registered identifier.
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
             .flatMap { $0.attachments ?? [] }
-        guard let provider = providers.first else {
+        let provider = providers.first(where: { item in
+            item.hasItemConformingToTypeIdentifier(UTType.movie.identifier) ||
+            item.hasItemConformingToTypeIdentifier(UTType.image.identifier) ||
+            item.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) ||
+            item.hasItemConformingToTypeIdentifier(UTType.url.identifier) ||
+            item.hasItemConformingToTypeIdentifier(UTType.plainText.identifier)
+        }) ?? providers.first
+        guard let provider else {
             statusLabel.text = "Keine Datei zum Teilen erhalten."
             sendButton.isEnabled = false
             return
@@ -136,8 +143,66 @@ final class ShareViewController: UIViewController, CBCentralManagerDelegate, CBP
             return type.conforms(to: .image)
         }) ?? identifiers.first(where: {
             guard let type = UTType($0) else { return false }
-            return type.conforms(to: .fileURL) || type.conforms(to: .data) || type.conforms(to: .content)
+            return type.conforms(to: .fileURL)
+        }) ?? identifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .url)
+        }) ?? identifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .plainText)
+        }) ?? identifiers.first(where: {
+            guard let type = UTType($0) else { return false }
+            return type.conforms(to: .data) || type.conforms(to: .content)
         }) ?? UTType.data.identifier
+
+        if let preferred = UTType(preferredType),
+           preferred.conforms(to: .url) || preferred.conforms(to: .plainText) {
+            provider.loadItem(forTypeIdentifier: preferredType, options: nil) { [weak self] item, error in
+                guard let self else { return }
+                guard error == nil, let item else {
+                    DispatchQueue.main.async {
+                        self.statusLabel.text = "Geteilte Webadresse oder Text konnte nicht geladen werden."
+                        self.sendButton.isEnabled = false
+                    }
+                    return
+                }
+                let sharedText: String
+                let filename: String
+                if let url = item as? URL {
+                    sharedText = url.absoluteString
+                    filename = "Geteilter Link.url.txt"
+                } else if let text = item as? String {
+                    sharedText = text
+                    filename = "Geteilter Text.txt"
+                } else if let data = item as? Data, let text = String(data: data, encoding: .utf8) {
+                    sharedText = text
+                    filename = "Geteilter Text.txt"
+                } else {
+                    DispatchQueue.main.async {
+                        self.statusLabel.text = "Dieses geteilte Format wird nicht unterstützt."
+                        self.sendButton.isEnabled = false
+                    }
+                    return
+                }
+                let destination = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(UUID().uuidString + "-" + filename)
+                do {
+                    try Data(sharedText.utf8).write(to: destination, options: .atomic)
+                    DispatchQueue.main.async {
+                        self.fileURL = destination
+                        self.filenameField.text = filename
+                        self.statusLabel.text = "Bereit · Link/Text"
+                        self.sendButton.isEnabled = true
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.statusLabel.text = "Geteilter Inhalt konnte nicht vorbereitet werden."
+                        self.sendButton.isEnabled = false
+                    }
+                }
+            }
+            return
+        }
 
         provider.loadFileRepresentation(forTypeIdentifier: preferredType) { [weak self] url, error in
             guard let self else { return }
