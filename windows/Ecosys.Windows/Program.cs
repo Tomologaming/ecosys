@@ -54,8 +54,8 @@ sealed class EcosysForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Segoe UI", 10F);
-        ClientSize = new Size(900, 680);
-        MinimumSize = new Size(760, 600);
+        ClientSize = new Size(960, 720);
+        MinimumSize = new Size(800, 620);
         BackColor = Page;
         Icon = LoadAppIcon();
 
@@ -198,7 +198,7 @@ sealed class EcosysForm : Form
         devicesPanel.Dock = DockStyle.Fill;
         devicesPanel.BackColor = Color.White;
         devicesPanel.BorderStyle = BorderStyle.FixedSingle;
-        devicesPanel.Padding = new Padding(8);
+        devicesPanel.Padding = new Padding(12);
         devicesPanel.Resize += (_, _) => ResizeDeviceRows();
         devicesLayout.Controls.Add(devicesPanel, 0, 1);
 
@@ -333,8 +333,45 @@ sealed class EcosysForm : Form
         devicesPanel.Controls.Clear();
 
         deviceCountLabel.Text = devices.Count == 0
-            ? "Keine Ecosys-Geräte gefunden"
+            ? "Noch keine Geräte gefunden"
             : $"{devices.Count} Gerät{(devices.Count == 1 ? "" : "e")} gefunden";
+
+        if (devices.Count == 0)
+        {
+            var emptyState = new Panel
+            {
+                Height = 150,
+                Width = Math.Max(400, devicesPanel.ClientSize.Width - 30),
+                BackColor = Color.FromArgb(248, 250, 252),
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            var emptyTitle = new Label
+            {
+                Text = "Noch keine Ecosys-Geräte",
+                AutoSize = false,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Top,
+                Height = 42,
+                Font = new Font("Segoe UI Semibold", 12F),
+                ForeColor = Ink
+            };
+            var emptyDescription = new Label
+            {
+                Text = "Aktiviere Ecosys auf deinem Smartphone und klicke auf „Suchen“.",
+                AutoSize = false,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Dock = DockStyle.Top,
+                Height = 48,
+                Font = new Font("Segoe UI", 9.5F),
+                ForeColor = Muted
+            };
+            emptyState.Controls.Add(emptyDescription);
+            emptyState.Controls.Add(emptyTitle);
+            devicesPanel.Controls.Add(emptyState);
+            devicesPanel.ResumeLayout();
+            ResizeDeviceRows();
+            return;
+        }
 
         foreach (var device in devices)
         {
@@ -342,9 +379,9 @@ sealed class EcosysForm : Form
             {
                 Height = 62,
                 Width = Math.Max(400, devicesPanel.ClientSize.Width - 26),
-                BackColor = Color.White,
-                Margin = new Padding(0, 0, 0, 8),
-                BorderStyle = BorderStyle.FixedSingle
+                BackColor = Color.FromArgb(248, 250, 252),
+                Margin = new Padding(0, 0, 0, 10),
+                BorderStyle = BorderStyle.None
             };
 
             var name = new Label
@@ -361,7 +398,7 @@ sealed class EcosysForm : Form
 
             var detail = new Label
             {
-                Text = "Ecosys Bluetooth",
+                Text = "Bluetooth-Gerät · Ecosys",
                 AutoSize = true,
                 Location = new Point(14, 33),
                 Font = new Font("Segoe UI", 8.5F),
@@ -371,8 +408,8 @@ sealed class EcosysForm : Form
 
             var connect = new Button
             {
-                Text = "Verbinden",
-                Size = new Size(110, 38),
+                Text = "Verbinden  →",
+                Size = new Size(124, 38),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(Math.Max(180, row.Width - 124), 11),
                 Font = new Font("Segoe UI Semibold", 9F),
