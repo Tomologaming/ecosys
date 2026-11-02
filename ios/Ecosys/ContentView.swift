@@ -3,10 +3,19 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var bluetooth = BluetoothManager()
+    @Environment(\.colorScheme) private var colorScheme
 
-    private let ink = Color(red: 0.08, green: 0.16, blue: 0.23)
+    private var ink: Color {
+        colorScheme == .dark
+            ? Color(red: 0.92, green: 0.95, blue: 0.98)
+            : Color(red: 0.08, green: 0.16, blue: 0.23)
+    }
     private let blue = Color(red: 0.20, green: 0.48, blue: 0.82)
-    private let green = Color(red: 0.15, green: 0.65, blue: 0.46)
+    private var green: Color {
+        colorScheme == .dark
+            ? Color(red: 0.28, green: 0.82, blue: 0.62)
+            : Color(red: 0.15, green: 0.65, blue: 0.46)
+    }
 
     var body: some View {
         ZStack {
@@ -26,18 +35,25 @@ struct ContentView: View {
                 .padding(.bottom, 30)
             }
         }
-        .preferredColorScheme(.light)
         .tint(blue)
+        .sensoryFeedback(.success, trigger: bluetooth.status.hasPrefix("Verbunden mit"))
+        .sensoryFeedback(.error, trigger: bluetooth.status.localizedCaseInsensitiveContains("fehlgeschlagen"))
     }
 
     private var background: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.89, green: 0.94, blue: 0.98),
-                    Color(red: 0.91, green: 0.96, blue: 0.93),
-                    Color(red: 0.96, green: 0.95, blue: 0.91)
-                ],
+                colors: colorScheme == .dark
+                    ? [
+                        Color(red: 0.035, green: 0.055, blue: 0.09),
+                        Color(red: 0.055, green: 0.09, blue: 0.12),
+                        Color(red: 0.09, green: 0.075, blue: 0.12)
+                    ]
+                    : [
+                        Color(red: 0.89, green: 0.94, blue: 0.98),
+                        Color(red: 0.91, green: 0.96, blue: 0.93),
+                        Color(red: 0.96, green: 0.95, blue: 0.91)
+                    ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -188,7 +204,7 @@ struct ContentView: View {
                                 .font(.system(size: 13, weight: .semibold))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 10)
-                                .liquidGlass(cornerRadius: 15)
+                                .liquidGlass(cornerRadius: 15, interactive: true)
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(blue)
@@ -209,7 +225,7 @@ struct ContentView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .liquidGlass(cornerRadius: 19)
+                .liquidGlass(cornerRadius: 19, interactive: true)
             }
             .buttonStyle(.plain)
             .foregroundStyle(ink)
@@ -245,7 +261,7 @@ struct ContentView: View {
                     ),
                     in: RoundedRectangle(cornerRadius: 20, style: .continuous)
                 )
-                .liquidGlass(cornerRadius: 20)
+                .liquidGlass(cornerRadius: 20, interactive: true)
             }
             .buttonStyle(.plain)
 
@@ -294,12 +310,14 @@ struct ContentView: View {
 
 private extension View {
     @ViewBuilder
-    func liquidGlass(cornerRadius: CGFloat) -> some View {
+    func liquidGlass(cornerRadius: CGFloat, interactive: Bool = false) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if #available(iOS 26.0, *) {
-            self.glassEffect(
-                .regular,
-                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            )
+            if interactive {
+                self.glassEffect(.regular.interactive(), in: shape)
+            } else {
+                self.glassEffect(.regular, in: shape)
+            }
         } else {
             self
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
