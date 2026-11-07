@@ -38,14 +38,37 @@ jobs:
         run: |
           Compress-Archive -Path dist/publish/* -DestinationPath dist/Ecosys-windows-safe.zip
           (Get-FileHash dist/Ecosys-windows-safe.zip -Algorithm SHA256).Hash | Out-File dist/Ecosys-windows-safe.zip.sha256 -Encoding ascii
-      - name: Install Inno Setup
+      - name: Install Inno Setup 7
         shell: pwsh
-        run: winget install --id JRSoftware.InnoSetup.7 -e --accept-package-agreements --accept-source-agreements --silent
+        run: |
+          # The Inno Setup 7 winget id is not available on every runner image, so try the
+          # known ids and fall back to Chocolatey. The installer script needs the Inno
+          # Setup 7 extraction engine (ArchiveExtraction=full), so a missing compiler must
+          # fail here instead of producing an installer that cannot unpack the payload.
+          $installed = $false
+          foreach ($id in @("JRSoftware.InnoSetup.7", "JRSoftware.InnoSetup")) {
+            if ($installed) { break }
+            & winget install --id $id -e --accept-package-agreements --accept-source-agreements --silent --disable-interactivity
+            if (Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}", "$env:LOCALAPPDATA\Programs" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue) {
+              $installed = $true
+            }
+          }
+          if (-not $installed) {
+            & choco install innosetup --yes --no-progress
+          }
+          exit 0
       - name: Locate Inno Setup
         shell: pwsh
         run: |
-          $iscc = Get-ChildItem -Path "$env:ProgramFiles", "$env:ProgramFiles(x86)" -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          $roots = @("$env:ProgramFiles", "${env:ProgramFiles(x86)}", "$env:LOCALAPPDATA\Programs") | Where-Object { $_ }
+          $iscc = Get-ChildItem -Path $roots -Filter ISCC.exe -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
           if (-not $iscc) { throw "ISCC.exe was not found after installing Inno Setup." }
+          $version = (Get-Item $iscc).VersionInfo.FileVersion
+          Write-Host "Using $iscc ($version)"
+          if ($version -and $version -notmatch '^7\.') {
+            throw "Inno Setup 7 is required for ArchiveExtraction, found $version."
+          }
           "ISCC_PATH=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
       - name: Build online installer
         shell: pwsh
@@ -53,6 +76,13 @@ jobs:
       - name: Build offline installer
         shell: pwsh
         run: '& "$env:ISCC_PATH" /DOfflineMode /F"Ecosys-Offline-Setup" installer/Ecosys.iss'
+      - name: Verify installer outputs
+        shell: pwsh
+        run: |
+          foreach ($file in @("installer/Output/Ecosys-Setup.exe", "installer/Output/Ecosys-Offline-Setup.exe")) {
+            if (-not (Test-Path $file)) { throw "$file was not produced." }
+            if ((Get-Item $file).Length -lt 200KB) { throw "$file looks truncated." }
+          }
       - name: Create GitHub release
         shell: pwsh
         env:

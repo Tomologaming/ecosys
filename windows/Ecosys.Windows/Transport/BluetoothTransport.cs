@@ -1,3 +1,4 @@
+using System.Text;
 using Ecosys.Windows.Protocol;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.Advertisement;
@@ -10,8 +11,6 @@ using Windows.Storage.Streams;
 
 namespace Ecosys.Windows.Transport;
 
-public sealed record BluetoothDeviceInfo(string Id, string Name);
-
 public sealed class BluetoothTransport : ITransport
 {
     private StreamSocket? socket;
@@ -19,15 +18,29 @@ public sealed class BluetoothTransport : ITransport
     private GattDeviceService? gattService;
     private GattCharacteristic? gattTx;
     private GattCharacteristic? gattRx;
-    private bool running;
     private GattServiceProvider? gattServer;
     private GattLocalCharacteristic? gattServerTx;
     private GattLocalCharacteristic? gattServerRx;
     private BluetoothLEAdvertisementPublisher? discoveryPublisher;
+    private readonly EcosysFrameAssembler incomingFrames = new();
+    private bool running;
 
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? MessageReceived;
     public event EventHandler<IReadOnlyList<BluetoothDeviceInfo>>? DevicesChanged;
+
+    public bool IsConnected =>
+        gattTx is not null ||
+        writer is not null ||
+        (gattServerRx is not null && gattServerRx.SubscribedClients.Count > 0);
+
+    private void ReportStatus(string message) => StatusChanged?.Invoke(this, message);
+
+    private void ReportMessage(ReadOnlySpan<byte> data)
+    {
+        foreach (var message in incomingFrames.Push(data))
+            MessageReceived?.Invoke(this, message);
+    }
 
     private async Task EnsureGattServerAsync()
     {
@@ -39,7 +52,7 @@ public sealed class BluetoothTransport : ITransport
             var result = await GattServiceProvider.CreateAsync(BluetoothTransportUuids.BleServiceUuid);
             if (result.Error != BluetoothError.Success)
             {
-                StatusChanged?.Invoke(this, $"BLE-Server konnte nicht erstellt werden: {result.Error}");
+                ReportStatus($"BLE-Server konnte nicht erstellt werden: {result.Error}");
                 return;
             }
 
@@ -47,7 +60,9 @@ public sealed class BluetoothTransport : ITransport
 
             var txParameters = new GattLocalCharacteristicParameters
             {
-                CharacteristicProperties = GattCharacteristicProperties.Write | GattCharacteristicProperties.WriteWithoutResponse,
+                UserDescription = "Ecosys messages (in)",
+                CharacteristicProperties =
+                    GattCharacteristicProperties.Write | GattCharacteristicProperties.WriteWithoutResponse,
                 WriteProtectionLevel = GattProtectionLevel.Plain
             };
             var txResult = await gattServer.Service.CreateCharacteristicAsync(
@@ -60,6 +75,7 @@ public sealed class BluetoothTransport : ITransport
 
             var rxParameters = new GattLocalCharacteristicParameters
             {
+                UserDescription = "Ecosys messages (out)",
                 CharacteristicProperties = GattCharacteristicProperties.Notify,
                 ReadProtectionLevel = GattProtectionLevel.Plain
             };
@@ -78,29 +94,37 @@ public sealed class BluetoothTransport : ITransport
             };
             gattServer.StartAdvertising(advertisingParameters);
 
-            // GattServiceProvider advertises the GATT service, but Windows does not
-            // let the app set its local advertisement name through that API.
-            // Publish the Ecosys name separately so iOS can identify this app even
-            // when the service UUID is omitted from an advertisement packet.
-            discoveryPublisher = new BluetoothLEAdvertisementPublisher();
-            discoveryPublisher.Advertisement.LocalName = "Ecosys";
-            discoveryPublisher.Start();
+            // GattServiceProvider advertises the service, but Windows does not expose the
+            // local advertisement name through that API. Publish the Ecosys name separately
+            // so iOS can identify the app even when the service UUID is missing from a packet.
+            try
+            {
+                discoveryPublisher = new BluetoothLEAdvertisementPublisher();
+                discoveryPublisher.Advertisement.LocalName = "Ecosys";
+                discoveryPublisher.Advertisement.ServiceUuids.Add(BluetoothTransportUuids.BleServiceUuid);
+                discoveryPublisher.Start();
+            }
+            catch (Exception ex)
+            {
+                discoveryPublisher = null;
+                ReportStatus($"BLE-Name konnte nicht beworben werden: {ex.Message}");
+            }
 
-            StatusChanged?.Invoke(this, "Ecosys BLE wird für andere Geräte beworben");
+            ReportStatus("Ecosys BLE ist für andere Geräte sichtbar");
         }
         catch (Exception ex)
         {
             gattServer = null;
             gattServerTx = null;
             gattServerRx = null;
-            StatusChanged?.Invoke(this, $"BLE-Server konnte nicht gestartet werden: {ex.Message}");
+            ReportStatus($"BLE-Server konnte nicht gestartet werden: {ex.Message}");
         }
     }
 
     private void OnGattServerSubscribedClientsChanged(GattLocalCharacteristic sender, object args)
     {
         var count = sender.SubscribedClients.Count;
-        StatusChanged?.Invoke(this, count == 0
+        ReportStatus(count == 0
             ? "Kein BLE-Gerät mehr verbunden"
             : $"{count} BLE-Gerät{(count == 1 ? "" : "e")} für Nachrichten verbunden");
     }
@@ -117,13 +141,15 @@ public sealed class BluetoothTransport : ITransport
                 return;
 
             CryptographicBuffer.CopyToByteArray(request.Value, out var bytes);
-            MessageReceived?.Invoke(this, System.Text.Encoding.UTF8.GetString(bytes));
+            ReportMessage(bytes);
+
             if (request.Option == GattWriteOption.WriteWithResponse)
                 request.Respond();
         }
         catch (Exception ex)
         {
-            StatusChanged?.Invoke(this, $"BLE-Empfang fehlgeschlagen: {ex.Message}");
+            // Completing the deferral without Respond() answers the write with an error.
+            ReportStatus($"BLE-Empfang fehlgeschlagen: {ex.Message}");
         }
         finally
         {
@@ -135,34 +161,33 @@ public sealed class BluetoothTransport : ITransport
     {
         running = true;
         await EnsureGattServerAsync();
-        StatusChanged?.Invoke(this, "Bluetooth-Geräte werden gesucht …");
+        ReportStatus("Bluetooth-Geräte werden gesucht …");
 
         var classicSelector = RfcommDeviceService.GetDeviceSelector(
             RfcommServiceId.FromUuid(BluetoothTransportUuids.ServiceUuid));
         var bleSelector = GattDeviceService.GetDeviceSelectorFromUuid(
             BluetoothTransportUuids.BleServiceUuid);
 
-        var classicTask = DeviceInformation.FindAllAsync(classicSelector).AsTask(cancellationToken);
-        var bleTask = DeviceInformation.FindAllAsync(bleSelector).AsTask(cancellationToken);
+        var classic = await DeviceInformation.FindAllAsync(classicSelector).AsTask(cancellationToken);
+        var ble = await DeviceInformation.FindAllAsync(bleSelector).AsTask(cancellationToken);
 
-        var classic = await classicTask;
-        var ble = await bleTask;
-
-        // Both selectors are scoped to Ecosys' private RFCOMM/BLE service UUIDs.
-        // Keep identities distinct: two legitimate devices may share the same display name.
+        // Both selectors are scoped to the private Ecosys RFCOMM/BLE service UUIDs.
+        // Keep identities distinct: two devices may legitimately share a display name.
         var result = classic
-            .Select(d => new BluetoothDeviceInfo(
-                "rfcomm:" + d.Id,
-                string.IsNullOrWhiteSpace(d.Name) ? "Ecosys-Gerät" : d.Name))
-            .Concat(ble.Select(d => new BluetoothDeviceInfo(
-                "gatt:" + d.Id,
-                string.IsNullOrWhiteSpace(d.Name) ? "Ecosys-BLE-Gerät" : d.Name)))
-            .GroupBy(d => d.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
+            .Select(device => new BluetoothDeviceInfo(
+                "rfcomm:" + device.Id,
+                string.IsNullOrWhiteSpace(device.Name) ? "Ecosys-Gerät" : device.Name,
+                "Bluetooth Classic · RFCOMM"))
+            .Concat(ble.Select(device => new BluetoothDeviceInfo(
+                "gatt:" + device.Id,
+                string.IsNullOrWhiteSpace(device.Name) ? "Ecosys-BLE-Gerät" : device.Name,
+                "Bluetooth Low Energy")))
+            .GroupBy(device => device.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToList();
 
         DevicesChanged?.Invoke(this, result);
-        StatusChanged?.Invoke(this, result.Count == 0
+        ReportStatus(result.Count == 0
             ? "Keine Ecosys-Geräte gefunden"
             : $"{result.Count} Ecosys-Gerät{(result.Count == 1 ? "" : "e")} gefunden");
 
@@ -172,6 +197,7 @@ public sealed class BluetoothTransport : ITransport
     public async Task ConnectAsync(BluetoothDeviceInfo deviceInfo, CancellationToken cancellationToken = default)
     {
         await DisconnectAsync();
+        running = true;
 
         if (deviceInfo.Id.StartsWith("gatt:", StringComparison.Ordinal))
         {
@@ -185,7 +211,7 @@ public sealed class BluetoothTransport : ITransport
     private async Task ConnectRfcommAsync(BluetoothDeviceInfo deviceInfo, CancellationToken cancellationToken)
     {
         var id = deviceInfo.Id["rfcomm:".Length..];
-        StatusChanged?.Invoke(this, $"Verbinde mit {deviceInfo.Name} …");
+        ReportStatus($"Verbinde mit {deviceInfo.Name} …");
 
         var service = await RfcommDeviceService.FromIdAsync(id);
         if (service is null)
@@ -213,22 +239,23 @@ public sealed class BluetoothTransport : ITransport
         }
 
         writer = new DataWriter(socket.OutputStream);
-        StatusChanged?.Invoke(this, $"Verbunden mit {deviceInfo.Name}");
+        ReportStatus($"Verbunden mit {deviceInfo.Name}");
 
         _ = ReadLoopAsync(socket.InputStream);
         await SendAsync(
-            EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows").ToJsonString(),
+            EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows")
+                .ToJsonString(),
             cancellationToken);
     }
 
     private async Task ConnectBleAsync(BluetoothDeviceInfo deviceInfo, CancellationToken cancellationToken)
     {
         var id = deviceInfo.Id["gatt:".Length..];
-        StatusChanged?.Invoke(this, $"Verbinde per BLE mit {deviceInfo.Name} …");
+        ReportStatus($"Verbinde per BLE mit {deviceInfo.Name} …");
 
-        // Force a fresh GATT lookup. Windows can retain stale service/characteristic
-        // metadata between scans, which otherwise makes valid iOS services appear missing.
-        gattService = await GattDeviceService.FromIdAsync(id, BluetoothCacheMode.Uncached);
+        // Force a fresh GATT lookup: Windows can keep stale service/characteristic
+        // metadata between scans, which makes valid peer services appear missing.
+        gattService = await GattDeviceService.FromIdAsync(id, GattSharingMode.Exclusive);
         if (gattService is null)
             throw new InvalidOperationException("Der Ecosys-BLE-Dienst ist nicht mehr verfügbar.");
 
@@ -257,20 +284,14 @@ public sealed class BluetoothTransport : ITransport
             var notifyStatus = await gattRx.WriteClientCharacteristicConfigurationDescriptorAsync(
                 GattClientCharacteristicConfigurationDescriptorValue.Notify);
             if (notifyStatus != GattCommunicationStatus.Success)
-                StatusChanged?.Invoke(this, $"BLE verbunden, Benachrichtigungen konnten nicht aktiviert werden ({notifyStatus}).");
+                ReportStatus($"BLE verbunden, Benachrichtigungen konnten nicht aktiviert werden ({notifyStatus}).");
         }
 
-        StatusChanged?.Invoke(this, $"Verbunden mit {deviceInfo.Name}");
+        ReportStatus($"Verbunden mit {deviceInfo.Name}");
         await SendAsync(
-            EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows").ToJsonString(),
+            EcosysMessage.Hello($"windows-{Environment.MachineName}", Environment.MachineName, "windows")
+                .ToJsonString(),
             cancellationToken);
-    }
-
-    public async Task StartAsync(CancellationToken cancellationToken = default)
-    {
-        var devices = await ScanAsync(cancellationToken);
-        if (devices.Count > 0)
-            await ConnectAsync(devices[0], cancellationToken);
     }
 
     public async Task SendAsync(string message, CancellationToken cancellationToken = default)
@@ -316,6 +337,7 @@ public sealed class BluetoothTransport : ITransport
             }
             catch
             {
+                // The peer may already be gone.
             }
         }
 
@@ -323,6 +345,7 @@ public sealed class BluetoothTransport : ITransport
         gattRx = null;
         gattService?.Dispose();
         gattService = null;
+        incomingFrames.Reset();
 
         writer?.Dispose();
         writer = null;
@@ -333,8 +356,7 @@ public sealed class BluetoothTransport : ITransport
     private void OnBleValueChanged(GattCharacteristic sender, GattValueChangedEventArgs args)
     {
         CryptographicBuffer.CopyToByteArray(args.CharacteristicValue, out var bytes);
-        var message = System.Text.Encoding.UTF8.GetString(bytes);
-        MessageReceived?.Invoke(this, message);
+        ReportMessage(bytes);
     }
 
     private async Task ReadLoopAsync(IInputStream input)
@@ -346,23 +368,34 @@ public sealed class BluetoothTransport : ITransport
         {
             while (running)
             {
-                await reader.LoadAsync(1);
-                var b = reader.ReadByte();
-                if (b == (byte)'\n')
+                var loaded = await reader.LoadAsync(4096);
+                if (loaded == 0)
+                    break;
+
+                for (var index = 0u; index < loaded; index++)
                 {
-                    MessageReceived?.Invoke(this, System.Text.Encoding.UTF8.GetString(buffer.ToArray()));
-                    buffer.Clear();
-                }
-                else
-                {
-                    buffer.Add(b);
-                    if (buffer.Count > 256 * 1024) buffer.Clear();
+                    var value = reader.ReadByte();
+                    if (value == (byte)'\n')
+                    {
+                        if (buffer.Count > 0)
+                        {
+                            ReportMessage(buffer.ToArray());
+                            buffer.Clear();
+                        }
+                    }
+                    else if (value != (byte)'\r' && value != 0)
+                    {
+                        buffer.Add(value);
+                        if (buffer.Count > 256 * 1024)
+                            buffer.Clear();
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            if (running) StatusChanged?.Invoke(this, $"Bluetooth-Verbindung beendet: {ex.Message}");
+            if (running)
+                ReportStatus($"Bluetooth-Verbindung beendet: {ex.Message}");
         }
     }
 
@@ -380,12 +413,15 @@ public sealed class BluetoothTransport : ITransport
         }
         catch
         {
+            // Shutdown is best effort.
         }
+
         discoveryPublisher = null;
         gattServer = null;
         gattServerTx = null;
         gattServerRx = null;
-        if (gattRx is not null) gattRx.ValueChanged -= OnBleValueChanged;
+        if (gattRx is not null)
+            gattRx.ValueChanged -= OnBleValueChanged;
         gattRx = null;
         gattTx = null;
         gattService?.Dispose();

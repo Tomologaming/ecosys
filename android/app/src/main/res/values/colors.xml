@@ -1,0 +1,16 @@
+<resources>
+    <color name="ic_launcher_background">#0B1422</color>
+
+    <color name="ecosys_page">#F4F6F8</color>
+    <color name="ecosys_card">#FFFFFF</color>
+    <color name="ecosys_ink">#18232B</color>
+    <color name="ecosys_muted">#6C7880</color>
+    <color name="ecosys_faint">#94A0A8</color>
+    <color name="ecosys_line">#E2E8EC</color>
+    <color name="ecosys_navy">#0F2130</color>
+    <color name="ecosys_teal">#1A524A</color>
+    <color name="ecosys_blue">#2F6FB0</color>
+    <color name="ecosys_green">#369E68</color>
+    <color name="ecosys_mint">#E9F5EF</color>
+    <color name="ecosys_mint_line">#C8E4D5</color>
+</resources>

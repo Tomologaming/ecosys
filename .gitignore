@@ -1,0 +1,34 @@
+# Local agent/tooling scratch space
+.freebuff/
+
+# .NET
+bin/
+obj/
+dist/
+*.user
+*.suo
+.vs/
+
+# Installer output
+installer/Output/
+
+# Gradle / Android
+.gradle/
+android/app/build/
+android/build/
+local.properties
+*.apk
+*.aab
+captures/
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.ipa
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp

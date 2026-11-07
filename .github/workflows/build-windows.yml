@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "windows/**"
+      - "icon/**"
+      - "global.json"
       - ".github/workflows/build-windows.yml"
   workflow_dispatch:
     inputs:
@@ -36,18 +38,25 @@ jobs:
         run: dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release
 
       - name: Publish
-        run: dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --output dist
+        run: dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --runtime win-x64 --self-contained true --output dist/publish -p:PublishSingleFile=false
+
+      - name: Verify published client
+        shell: pwsh
+        run: |
+          $exe = "dist/publish/Ecosys.Windows.exe"
+          if (-not (Test-Path $exe)) { throw "$exe was not produced." }
+          if (-not (Test-Path "dist/publish/Ecosys.Windows.dll")) { throw "Client assembly is missing." }
 
       - name: Create ZIP
         shell: pwsh
         env:
           BUILD_NAME: ${{ inputs.build_name || 'Ecosys-windows' }}
-        run: Compress-Archive -Path dist/* -DestinationPath "${env:BUILD_NAME}.zip"
+        run: Compress-Archive -Path dist/publish/* -DestinationPath "${env:BUILD_NAME}.zip"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.build_name }}
-          path: "${{ inputs.build_name }}.zip"
+          name: ${{ inputs.build_name || 'Ecosys-windows' }}
+          path: "${{ inputs.build_name || 'Ecosys-windows' }}.zip"
           if-no-files-found: error
           retention-days: 30

@@ -33,6 +33,14 @@ jobs:
           test "$HEIGHT" = "1024"
           file "$TARGET"
 
+      - name: Verify project and scheme
+        run: |
+          set -euo pipefail
+          xcodebuild -list -project ios/Ecosys.xcodeproj
+          plutil -lint ios/Ecosys/Info.plist
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' ios/Ecosys/Info.plist)" = "APPL"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSBluetoothAlwaysUsageDescription' ios/Ecosys/Info.plist | wc -c)" -gt 10
+
       - name: Build iOS app for Sideloadly
         run: |
           set -euo pipefail
@@ -56,7 +64,12 @@ jobs:
           # Sideloadly must apply the device-specific Apple signature itself.
           # Remove any stale signatures from nested code objects as well.
           find "$APP" -type d -name "_CodeSignature" -prune -exec rm -rf {} +
-          find "$APP" -type f \( -name "*.dylib" -o -name "*.framework" \) -exec codesign --remove-signature {} + 2>/dev/null || true
+          find "$APP" -type f -name "*.dylib" -exec codesign --remove-signature {} + 2>/dev/null || true
+          find "$APP" -depth -type d -name "*.framework" -exec codesign --remove-signature {} + 2>/dev/null || true
+          # The finished bundle must carry the app icon and the Bluetooth usage text,
+          # otherwise iOS refuses to install or crashes on the first BLE call.
+          test -f "$APP/AppIcon60x60@2x.png" || test -f "$APP/Assets.car"
+          /usr/libexec/PlistBuddy -c 'Print :NSBluetoothAlwaysUsageDescription' "$APP/Info.plist" >/dev/null
 
       - name: Package IPA for Sideloadly
         shell: bash

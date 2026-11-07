@@ -8,5 +8,20 @@
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU</Platforms>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\ecosys.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyTitle>Ecosys</AssemblyTitle>
+    <Product>Ecosys</Product>
+    <Company>Ecosys Open Source</Company>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <NeutralLanguage>de-DE</NeutralLanguage>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\ecosys.png" LogicalName="Ecosys.Windows.Assets.ecosys.png" />
+    <EmbeddedResource Include="Assets\ecosys.ico" LogicalName="Ecosys.Windows.Assets.ecosys.ico" />
+  </ItemGroup>
 </Project>

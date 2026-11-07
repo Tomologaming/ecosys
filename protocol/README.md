@@ -11,6 +11,16 @@ The Ecosys protocol is transport-independent. Bluetooth is the first transport; 
 - compatibility across Android, Windows, iOS/iPadOS and macOS
 
 ## Current scope
-This first foundation defines the message envelope, core control messages, identifiers, and compatibility rules. It does not yet implement Bluetooth or cryptography.
+The envelope, control messages, file transfer messages and the ECS1 BLE framing are defined.
+Windows, iOS and the web bridge implement the envelope and framing today:
 
-See `messages.md` and `versioning.md`.
+| Transport | Platform | Implemented |
+|-----------|----------|-------------|
+| BLE GATT (service `6e6f4d4f-0002-…`) | Windows server + client, iOS server + client, web client | hello, file.*, ECS1 framing |
+| RFCOMM (service `6e6f4d4f-0001-…`) | Android server + client, Windows client | newline-delimited JSON control messages |
+
+Pairing and the encrypted session described in `security.md` are designed but not implemented
+yet; application data therefore stays limited to the hello test and user-initiated file
+transfers between devices the user explicitly connected.
+
+See `messages.md`, `security.md` and `versioning.md`.

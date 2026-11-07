@@ -5,31 +5,34 @@
 - [x] Define initial control messages
 - [x] Define protocol compatibility rules
 - [x] Document core/transport/platform separation
+- [x] Define file transfer messages and ECS1 BLE framing
 
 ## Phase 2 — Android foundation
-- [ ] Kotlin project
-- [ ] Bluetooth transport abstraction
-- [ ] Android Bluetooth discovery/connection
+- [x] Kotlin project
+- [x] Bluetooth transport abstraction (RFCOMM)
+- [x] Android Bluetooth discovery/connection
 - [ ] Pairing/trust UI
 - [ ] Background connection/event handling
 
 ## Phase 3 — Windows foundation
-- [ ] .NET client
-- [ ] Bluetooth transport implementation
+- [x] .NET client
+- [x] Bluetooth transport implementation (RFCOMM client, BLE server and client)
+- [x] Installer (online and offline)
 - [ ] Pairing/trust UI
 - [ ] Background/reconnect handling
 
 ## Phase 4 — Android ↔ Windows MVP
-- [ ] Discovery
+- [x] Discovery
+- [x] hello / hello.ack (hello only)
+- [x] Bidirectional test message
+- [x] Diagnostics/logging
 - [ ] Explicit peer confirmation
 - [ ] Secure session
-- [ ] hello / hello.ack
-- [ ] Bidirectional test message
-- [ ] Diagnostics/logging
 
 ## Phase 5 — Useful features
+- [x] File transfer messages (BLE, base64 chunks)
+- [ ] File receiver in the Android app
 - [ ] Clipboard synchronization
-- [ ] File transfer
 - [ ] Connection history
 - [ ] Multiple trusted devices
 
@@ -38,6 +41,6 @@
 - [ ] USB transport
 
 ## Phase 7 — Apple platforms
-- [ ] iOS/iPadOS client
+- [x] iOS/iPadOS BLE client and server
 - [ ] macOS client
 - [ ] AltStore distribution where appropriate

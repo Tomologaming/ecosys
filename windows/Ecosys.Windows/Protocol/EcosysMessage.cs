@@ -12,7 +12,8 @@ public sealed record EcosysMessage(
 {
     public const string CurrentProtocol = "ecosys/1";
 
-    public string ToJsonString() => JsonSerializer.Serialize(new {
+    public string ToJsonString() => JsonSerializer.Serialize(new
+    {
         protocol = CurrentProtocol,
         type = Type,
         sender = Sender,
@@ -23,8 +24,54 @@ public sealed record EcosysMessage(
 
     public static EcosysMessage Hello(string sender, string deviceName, string platform) =>
         new("hello", sender, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Guid.NewGuid().ToString("N"),
-            new Dictionary<string, object?> {
+            new Dictionary<string, object?>
+            {
                 ["deviceName"] = deviceName,
-                ["platform"] = platform
+                ["platform"] = platform,
+                ["capabilities"] = new[] { "hello", "ping" }
             });
+}
+
+/// <summary>Read-only view of a received envelope, used for the activity feed.</summary>
+public sealed record ReceivedMessage(string Type, string Sender, string? DeviceName)
+{
+    public static bool TryParse(string json, out ReceivedMessage? message)
+    {
+        message = null;
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (!root.TryGetProperty("protocol", out var protocol) ||
+                protocol.GetString() != EcosysMessage.CurrentProtocol)
+                return false;
+
+            if (!root.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String)
+                return false;
+
+            var sender = root.TryGetProperty("sender", out var senderElement) &&
+                         senderElement.ValueKind == JsonValueKind.String
+                ? senderElement.GetString() ?? string.Empty
+                : string.Empty;
+
+            string? deviceName = null;
+            if (root.TryGetProperty("payload", out var payload) &&
+                payload.ValueKind == JsonValueKind.Object &&
+                payload.TryGetProperty("deviceName", out var name) &&
+                name.ValueKind == JsonValueKind.String)
+            {
+                deviceName = name.GetString();
+            }
+
+            message = new ReceivedMessage(type.GetString()!, sender, deviceName);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 }

@@ -1,1 +1,11 @@
-<resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"/></resources>
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/ecosys_page</item>
+        <item name="android:colorAccent">@color/ecosys_blue</item>
+        <item name="android:statusBarColor">@color/ecosys_navy</item>
+        <item name="android:navigationBarColor">@color/ecosys_page</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

@@ -10,35 +10,101 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.core.app.ActivityCompat
-import org.json.JSONObject
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-    private lateinit var status: TextView
-    private lateinit var devices: LinearLayout
-    private lateinit var connectionDot: View
-    private lateinit var connectionLabel: TextView
+
+    private lateinit var statusText: TextView
+    private lateinit var statusDot: View
+    private lateinit var deviceCountText: TextView
+    private lateinit var devicesContainer: LinearLayout
+    private lateinit var connectionTitle: TextView
+    private lateinit var connectionDetail: TextView
+    private lateinit var activityText: TextView
+    private lateinit var deviceIdText: TextView
+    private lateinit var scanButton: Button
+    private lateinit var sendButton: Button
+    private lateinit var disconnectButton: Button
+
     private var transport: BluetoothTransport? = null
+    private var identity: DeviceIdentity? = null
+    private val knownDevices = LinkedHashMap<String, BluetoothDevice>()
+    private val log = ArrayDeque<String>()
+    private var receiverRegistered = false
+    private var hasScanned = false
+
+    private val permissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            if (result.values.all { it }) {
+                startBluetooth()
+            } else {
+                setStatus("Bluetooth-Berechtigungen fehlen")
+            }
+        }
+
+    private val enableBluetoothLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            startBluetooth()
+        }
 
     private val discoveryReceiver = object : BroadcastReceiver() {
         @SuppressLint("MissingPermission")
         override fun onReceive(context: Context, intent: Intent) {
-            if (BluetoothDevice.ACTION_FOUND == intent.action) {
-                val device = intent.getParcelableExtraCompat<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE) ?: return
-                addDevice(device)
-            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == intent.action) {
-                status.text = "Scan complete"
+            when (intent.action) {
+                BluetoothDevice.ACTION_FOUND -> {
+                    val device = intent.getParcelableExtraCompat<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                        ?: return
+                    val address = device.address ?: return
+                    if (knownDevices.containsKey(address)) return
+                    knownDevices[address] = device
+                    rebuildDeviceList()
+                    deviceCountText.text = "${knownDevices.size} Gerät${if (knownDevices.size == 1) "" else "e"} gefunden"
+                }
+
+                BluetoothAdapter.ACTION_DISCOVERY_STARTED -> {
+                    hasScanned = true
+                    scanButton.isEnabled = false
+                    scanButton.text = "Suche …"
+                    setStatus("Suche nach Geräten in der Nähe …")
+                }
+
+                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                    scanButton.isEnabled = true
+                    scanButton.text = "Suchen"
+                    setStatus(
+                        if (knownDevices.isEmpty()) "Keine Geräte gefunden"
+                        else "${knownDevices.size} Gerät${if (knownDevices.size == 1) "" else "e"} gefunden"
+                    )
+                }
+
+                BluetoothAdapter.ACTION_STATE_CHANGED -> {
+                    if (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1) == BluetoothAdapter.STATE_ON) {
+                        startBluetooth()
+                    } else {
+                        setStatus("Bluetooth ist ausgeschaltet")
+                    }
+                }
             }
         }
     }
@@ -47,262 +113,540 @@ class MainActivity : ComponentActivity() {
         super.onCreate(state)
         buildUi()
 
-        registerReceiverCompat(discoveryReceiver, IntentFilter().apply {
-            addAction(BluetoothDevice.ACTION_FOUND)
-            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
-        })
+        identity = runCatching { DeviceIdentity() }.getOrNull()
+        deviceIdText.text = identity?.deviceId?.let(::shortId) ?: "nicht verfügbar"
 
-        if (Build.VERSION.SDK_INT >= 31 &&
-            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_ADVERTISE
-            ), 100)
-            return
+        registerDiscoveryReceiver()
+        addLog("Ecosys gestartet")
+
+        if (hasRequiredPermissions()) {
+            startBluetooth()
+        } else {
+            permissionsLauncher.launch(requiredPermissions())
         }
-        startBluetooth()
     }
+
+    // ---------------------------------------------------------------- UI
 
     private fun buildUi() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(247, 248, 250))
+            setBackgroundColor(color(R.color.ecosys_page))
         }
+
+        root.addView(buildHero())
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(18.dp, 18.dp, 18.dp, 28.dp)
+        }
+        root.addView(content)
+
+        content.addView(sectionLabel("DIESES GERÄT"), topMargin(0))
+        content.addView(buildIdentityCard(), topMargin(8))
+
+        content.addView(buildNearbyHeader(), topMargin(22))
+        content.addView(buildDeviceCard(), topMargin(8))
+
+        val discoverable = actionButton("Dieses Gerät sichtbar machen", primary = false)
+        discoverable.setOnClickListener { requestDiscoverable() }
+        content.addView(discoverable, topMargin(10))
+
+        content.addView(buildHintCard(), topMargin(18))
+
+        content.addView(sectionLabel("VERBINDUNG"), topMargin(22))
+        content.addView(buildConnectionCard(), topMargin(8))
+
+        content.addView(sectionLabel("AKTIVITÄT"), topMargin(22))
+        content.addView(buildActivityCard(), topMargin(8))
+
+        content.addView(
+            label(
+                "Direkt zwischen deinen Geräten · keine Cloud · keine Server",
+                11f,
+                color(R.color.ecosys_faint)
+            ).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, 22.dp, 0, 0)
+            },
+            topMargin(0)
+        )
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
-            addView(LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(20), dp(24), dp(20), dp(28))
-
-                addView(TextView(this@MainActivity).apply {
-                    text = "Ecosys"
-                    textSize = 32f
-                    setTextColor(Color.rgb(22, 24, 29))
-                    typeface = Typeface.DEFAULT_BOLD
-                }, lp())
-
-                addView(TextView(this@MainActivity).apply {
-                    text = "Private. Direct. Yours."
-                    textSize = 15f
-                    setTextColor(Color.rgb(105, 110, 120))
-                }, lp(top = 2))
-
-                val statusCard = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(16), dp(14), dp(16), dp(14))
-                    background = rounded(Color.WHITE, 20)
-                }
-                connectionDot = View(this@MainActivity).apply {
-                    background = circle(Color.rgb(155, 160, 170))
-                }
-                statusCard.addView(connectionDot, LinearLayout.LayoutParams(dp(10), dp(10)))
-                connectionLabel = TextView(this@MainActivity).apply {
-                    text = "Bluetooth starting…"
-                    textSize = 14f
-                    setTextColor(Color.rgb(55, 59, 68))
-                    setPadding(dp(10), 0, 0, 0)
-                }
-                statusCard.addView(connectionLabel, lp(weight = 1f))
-                addView(statusCard, lp(top = 20))
-
-                addView(sectionTitle("This device"), lp(top = 24))
-                addView(deviceCard(), lp(top = 8))
-
-                addView(sectionTitle("Nearby devices"), lp(top = 24))
-                status = TextView(this@MainActivity).apply {
-                    text = "No devices found yet"
-                    textSize = 14f
-                    setTextColor(Color.rgb(105, 110, 120))
-                }
-                addView(status, lp(top = 8))
-
-                devices = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.VERTICAL
-                }
-                addView(devices, lp(top = 8))
-
-                val scan = actionButton("Find nearby devices", true)
-                scan.setOnClickListener { startDiscovery() }
-                addView(scan, lp(top = 12))
-
-                val discoverable = actionButton("Make this device discoverable", false)
-                discoverable.setOnClickListener {
-                    startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                        putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-                    })
-                }
-                addView(discoverable, lp(top = 8))
-
-                addView(sectionTitle("Quick test"), lp(top = 24))
-                val send = actionButton("Send Hello", false)
-                send.setOnClickListener {
-                    transport?.send(EcosysMessage(
-                        "hello", "android-\${Build.MODEL}",
-                        payload = JSONObject().put("deviceName", Build.MODEL).put("platform", "android")
-                    ))
-                    status.text = "Hello sent"
-                }
-                addView(send, lp(top = 8))
-
-                addView(TextView(this@MainActivity).apply {
-                    text = "Ecosys connects your devices directly. Your data stays between your devices."
-                    textSize = 12f
-                    setTextColor(Color.rgb(125, 129, 138))
-                    gravity = Gravity.CENTER
-                    setPadding(dp(12), dp(24), dp(12), 0)
-                }, lp())
-            })
+            setBackgroundColor(color(R.color.ecosys_page))
+            addView(root)
         }
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(root)
+        setContentView(scroll)
     }
 
-    private fun deviceCard(): View {
-        val card = LinearLayout(this).apply {
+    private fun buildHero(): View {
+        val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(18))
-            background = rounded(Color.WHITE, 20)
+            setPadding(22.dp, 26.dp, 22.dp, 22.dp)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(color(R.color.ecosys_navy), color(R.color.ecosys_teal))
+            ).apply {
+                val radius = 28.dp.toFloat()
+                cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, radius, radius, radius, radius)
+            }
         }
-        card.addView(TextView(this).apply {
-            text = Build.MODEL
-            textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.rgb(22, 24, 29))
+
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        brand.addView(ImageView(this).apply {
+            setImageResource(R.mipmap.ic_launcher)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }, LinearLayout.LayoutParams(56.dp, 56.dp))
+
+        val brandText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14.dp, 0, 0, 0)
+        }
+        brandText.addView(label("Ecosys", 28f, Color.WHITE, medium = true))
+        brandText.addView(
+            label("PRIVAT. DIREKT. DEINS.", 9f, 0xFF9ED6C3.toInt(), medium = true).apply {
+                letterSpacing = 0.16f
+                setPadding(0, 2.dp, 0, 0)
+            }
+        )
+        brand.addView(brandText)
+        hero.addView(brand)
+
+        hero.addView(
+            label("Geräte verbinden sich direkt – ohne Cloud, ohne Konto.", 13f, 0xFFCFE0E4.toInt())
+                .apply { setPadding(0, 14.dp, 0, 0) }
+        )
+
+        val statusRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 16.dp, 0, 0)
+        }
+        statusDot = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xFF8496A0.toInt())
+            }
+        }
+        statusRow.addView(statusDot, LinearLayout.LayoutParams(9.dp, 9.dp))
+        statusText = label("Bluetooth wird geprüft …", 13f, 0xFFE8F1F3.toInt())
+        statusRow.addView(statusText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            leftMargin = 10.dp
         })
-        card.addView(TextView(this).apply {
-            text = "Android • This device"
-            textSize = 14f
-            setTextColor(Color.rgb(105, 110, 120))
-            setPadding(0, dp(4), 0, 0)
-        })
+        hero.addView(statusRow)
+
+        return hero
+    }
+
+    private fun buildIdentityCard(): View {
+        val card = cardContainer()
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        row.addView(ImageView(this).apply {
+            setImageResource(R.mipmap.ic_launcher)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }, LinearLayout.LayoutParams(42.dp, 42.dp))
+
+        val texts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(14.dp, 0, 8.dp, 0)
+        }
+        texts.addView(label(Build.MODEL, 16f, color(R.color.ecosys_ink), medium = true))
+        texts.addView(label("Android · Ecosys Bluetooth", 12f, color(R.color.ecosys_muted)))
+        row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        val idColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+        }
+        idColumn.addView(
+            label("GERÄTE-ID", 9f, color(R.color.ecosys_faint), medium = true)
+                .apply { letterSpacing = 0.08f }
+        )
+        deviceIdText = label("…", 10f, color(R.color.ecosys_muted)).apply {
+            typeface = Typeface.MONOSPACE
+        }
+        idColumn.addView(deviceIdText)
+        row.addView(idColumn)
+
+        card.addView(row)
         return card
     }
 
-    @SuppressLint("MissingPermission")
-    private fun addDevice(device: BluetoothDevice) {
-        val name = device.name ?: "Unknown device"
-        if (devices.childCount == 0) status.text = "Devices found"
-        devices.addView(LinearLayout(this).apply {
+    private fun buildNearbyHeader(): View {
+        val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(14), dp(10), dp(14))
-            background = rounded(Color.WHITE, 16)
+        }
 
-            addView(TextView(this@MainActivity).apply {
-                text = name
-                textSize = 16f
-                setTextColor(Color.rgb(35, 38, 45))
-            }, lp(weight = 1f))
+        val texts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        texts.addView(sectionLabel("ECOSYS-GERÄTE IN DER NÄHE"))
+        deviceCountText = label("Noch nicht gesucht", 12f, color(R.color.ecosys_muted))
+            .apply { setPadding(0, 2.dp, 0, 0) }
+        texts.addView(deviceCountText)
+        row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
-            addView(Button(this@MainActivity).apply {
-                text = "Connect"
-                isAllCaps = false
-                setOnClickListener {
-                    status.text = "Connecting to \$name…"
-                    transport?.connect(device)
-                }
-            }, lp(width = -2))
-        }, lp(bottom = 8))
+        scanButton = actionButton("Suchen", primary = true)
+        scanButton.setOnClickListener { startDiscovery() }
+        row.addView(scanButton)
+        return row
     }
+
+    private fun buildDeviceCard(): View {
+        val card = cardContainer()
+        devicesContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        card.addView(devicesContainer)
+        rebuildDeviceList()
+        return card
+    }
+
+    private fun buildHintCard(): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16.dp, 14.dp, 16.dp, 14.dp)
+            background = surface(color(R.color.ecosys_mint), 14, color(R.color.ecosys_mint_line))
+        }
+        card.addView(label("Beide Geräte brauchen Bluetooth", 13f, 0xFF204E3E.toInt(), medium = true))
+        card.addView(
+            label(
+                "Beim ersten Verbinden kann eine Kopplung bestätigt werden müssen.",
+                12f,
+                0xFF486C5C.toInt()
+            ).apply { setPadding(0, 4.dp, 0, 0) }
+        )
+        return card
+    }
+
+    private fun buildConnectionCard(): View {
+        val card = cardContainer()
+
+        connectionTitle = label("Kein Gerät verbunden", 15f, color(R.color.ecosys_ink), medium = true)
+        connectionDetail = label(
+            "Wähle oben ein Gerät aus, um eine Verbindung aufzubauen.",
+            12f,
+            color(R.color.ecosys_muted)
+        ).apply { setPadding(0, 4.dp, 0, 0) }
+
+        card.addView(connectionTitle)
+        card.addView(connectionDetail)
+
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        sendButton = actionButton("Hello senden", primary = true)
+        sendButton.setOnClickListener { sendHello() }
+        buttons.addView(sendButton, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        disconnectButton = actionButton("Trennen", primary = false)
+        disconnectButton.setOnClickListener { disconnect() }
+        buttons.addView(disconnectButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { leftMargin = 8.dp })
+
+        card.addView(buttons, topMargin(14))
+        updateConnectionButtons(false)
+        return card
+    }
+
+    private fun buildActivityCard(): View {
+        val card = cardContainer()
+        activityText = label("Noch keine Aktivität.", 10f, color(R.color.ecosys_muted)).apply {
+            typeface = Typeface.MONOSPACE
+            setLineSpacing(3.dp.toFloat(), 1f)
+        }
+        card.addView(activityText)
+        return card
+    }
+
+    // ------------------------------------------------------------ helpers
+
+    private fun cardContainer(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(16.dp, 16.dp, 16.dp, 16.dp)
+        background = surface(color(R.color.ecosys_card), 18, color(R.color.ecosys_line))
+    }
+
+    private fun label(text: String, size: Float, textColor: Int, medium: Boolean = false): TextView =
+        TextView(this).apply {
+            this.text = text
+            textSize = size
+            setTextColor(textColor)
+            typeface = if (medium) Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            else Typeface.create("sans-serif", Typeface.NORMAL)
+        }
+
+    private fun sectionLabel(text: String): TextView =
+        label(text, 10.5f, color(R.color.ecosys_muted), medium = true).apply {
+            letterSpacing = 0.12f
+        }
+
+    private fun actionButton(text: String, primary: Boolean): Button = Button(this).apply {
+        this.text = text
+        isAllCaps = false
+        textSize = 13f
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        minHeight = 0
+        minimumHeight = 0
+        minWidth = 0
+        minimumWidth = 0
+        stateListAnimator = null
+        setPadding(18.dp, 11.dp, 18.dp, 11.dp)
+        if (primary) {
+            setTextColor(Color.WHITE)
+            background = rippleSurface(color(R.color.ecosys_green), 12, null, 0x40FFFFFF)
+        } else {
+            setTextColor(color(R.color.ecosys_blue))
+            background = rippleSurface(color(R.color.ecosys_card), 12, color(R.color.ecosys_line))
+        }
+    }
+
+    private fun rebuildDeviceList() {
+        devicesContainer.removeAllViews()
+
+        if (knownDevices.isEmpty()) {
+            devicesContainer.addView(
+                label(
+                    if (hasScanned) "Keine Geräte gefunden"
+                    else "Noch nicht gesucht – tippe auf „Suchen“.",
+                    13f,
+                    color(R.color.ecosys_muted)
+                ).apply { setPadding(2.dp, 6.dp, 2.dp, 6.dp) }
+            )
+            return
+        }
+
+        var first = true
+        for (device in knownDevices.values) {
+            if (!first) {
+                devicesContainer.addView(View(this).apply { setBackgroundColor(color(R.color.ecosys_line)) },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp).apply {
+                        topMargin = 10.dp
+                        bottomMargin = 10.dp
+                    })
+            }
+            first = false
+            devicesContainer.addView(deviceRow(device))
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun deviceRow(device: BluetoothDevice): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        texts.addView(
+            label(device.name ?: "Unbekanntes Gerät", 14f, color(R.color.ecosys_ink), medium = true)
+        )
+        texts.addView(label("Bluetooth Classic · RFCOMM", 11f, color(R.color.ecosys_muted)))
+        row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        val connect = actionButton("Verbinden", primary = false)
+        connect.setOnClickListener {
+            transport?.connect(device)
+            setStatus("Verbinde mit ${device.name ?: "Gerät"} …")
+        }
+        row.addView(connect)
+        return row
+    }
+
+    // --------------------------------------------------------- behaviour
 
     @SuppressLint("MissingPermission")
     private fun startBluetooth() {
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
         if (adapter == null) {
-            setConnectionState("Bluetooth unavailable", false)
+            setStatus("Bluetooth wird nicht unterstützt")
             return
         }
-        transport = BluetoothTransport(adapter,
-            { message -> runOnUiThread {
-                status.text = "Received: \${message.type}"
-                setConnectionState("Connected", true)
-            } },
-            { state -> runOnUiThread {
-                status.text = state
-                setConnectionState(state, state.contains("connected", true))
-            } }
-        )
-        transport?.startServer()
-        setConnectionState("Ready for nearby devices", true)
+        if (!adapter.isEnabled) {
+            setStatus("Bluetooth ist ausgeschaltet")
+            return
+        }
+        if (transport == null) {
+            transport = BluetoothTransport(
+                adapter = adapter,
+                onMessage = { message ->
+                    runOnUiThread {
+                        setStatus("Empfangen: ${message.type}")
+                        val name = message.payload.optString("deviceName")
+                        addLog("← ${message.type}${if (name.isEmpty()) "" else " · $name"}")
+                    }
+                },
+                onState = { state ->
+                    runOnUiThread {
+                        setStatus(state)
+                        addLog(state)
+                    }
+                },
+                onConnected = { connected ->
+                    runOnUiThread {
+                        updateConnectionButtons(connected)
+                        val now = transport?.peerName
+                        connectionTitle.text = if (connected && now != null) now else "Kein Gerät verbunden"
+                        connectionDetail.text = if (connected)
+                            "Bluetooth Classic · Nachrichten werden direkt übertragen."
+                        else "Wähle oben ein Gerät aus, um eine Verbindung aufzubauen."
+                        setStatus(if (connected) "Verbunden mit ${now ?: "Gerät"}" else "Bereit für Geräte in der Nähe")
+                    }
+                }
+            ).also { it.startServer() }
+        } else {
+            setStatus("Bereit für Geräte in der Nähe")
+        }
     }
 
     @SuppressLint("MissingPermission")
     private fun startDiscovery() {
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter ?: return
-        devices.removeAllViews()
-        status.text = "Scanning for nearby devices…"
+        if (!hasRequiredPermissions()) {
+            permissionsLauncher.launch(requiredPermissions())
+            return
+        }
+        if (!adapter.isEnabled) {
+            enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            return
+        }
+
+        knownDevices.clear()
+        hasScanned = true
+        rebuildDeviceList()
+        deviceCountText.text = "Suche läuft …"
         if (adapter.isDiscovering) adapter.cancelDiscovery()
-        adapter.startDiscovery()
+        val started = adapter.startDiscovery()
+        if (!started) setStatus("Suche konnte nicht gestartet werden")
     }
 
-    private fun setConnectionState(text: String, connected: Boolean) {
-        connectionLabel.text = text
-        connectionDot.background = circle(
-            if (connected) Color.rgb(49, 180, 106) else Color.rgb(155, 160, 170)
-        )
+    @SuppressLint("MissingPermission")
+    private fun requestDiscoverable() {
+        if (!hasRequiredPermissions()) {
+            permissionsLauncher.launch(requiredPermissions())
+            return
+        }
+        startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+            putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+        })
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, results: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, results)
-        if (requestCode == 100 && results.all { it == PackageManager.PERMISSION_GRANTED }) startBluetooth()
-        else setConnectionState("Bluetooth permissions required", false)
+    private fun sendHello() {
+        val active = transport
+        if (active == null || !active.isConnected) {
+            setStatus("Kein Gerät verbunden")
+            return
+        }
+        val sender = identity?.deviceId ?: "android-${Build.MODEL}"
+        val sent = active.send(EcosysMessage.hello(sender, Build.MODEL))
+        setStatus(if (sent) "Hello gesendet" else "Senden fehlgeschlagen")
+        addLog(if (sent) "→ hello gesendet" else "→ hello fehlgeschlagen")
+    }
+
+    private fun disconnect() {
+        transport?.disconnect()
+        updateConnectionButtons(false)
+    }
+
+    private fun updateConnectionButtons(connected: Boolean) {
+        for (button in listOf(sendButton, disconnectButton)) {
+            button.isEnabled = connected
+            button.alpha = if (connected) 1f else 0.45f
+        }
+        statusDot.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (connected) color(R.color.ecosys_green) else 0xFF8496A0.toInt())
+        }
+    }
+
+    private fun setStatus(text: String) {
+        if (::statusText.isInitialized) statusText.text = text
+    }
+
+    private fun addLog(message: String) {
+        val stamp = SimpleDateFormat("HH:mm:ss", Locale.GERMANY).format(Date())
+        log.addFirst("$stamp  $message")
+        while (log.size > 7) log.removeLast()
+        if (::activityText.isInitialized) activityText.text = log.joinToString("\n")
+    }
+
+    // -------------------------------------------------------- permissions
+
+    private fun requiredPermissions(): Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            )
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+    private fun hasRequiredPermissions(): Boolean =
+        requiredPermissions().all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+
+    // ------------------------------------------------------------ dizayn
+
+    private fun registerDiscoveryReceiver() {
+        if (receiverRegistered) return
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_FOUND)
+            addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
+            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+            addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+        }
+        ContextCompat.registerReceiver(this, discoveryReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        receiverRegistered = true
     }
 
     override fun onDestroy() {
-        runCatching { unregisterReceiver(discoveryReceiver) }
+        if (receiverRegistered) {
+            runCatching { unregisterReceiver(discoveryReceiver) }
+            receiverRegistered = false
+        }
         transport?.close()
+        transport = null
         super.onDestroy()
     }
 
-    private fun sectionTitle(text: String) = TextView(this).apply {
-        this.text = text
-        textSize = 18f
-        typeface = Typeface.DEFAULT_BOLD
-        setTextColor(Color.rgb(35, 38, 45))
-    }
-
-    private fun actionButton(text: String, primary: Boolean) = Button(this).apply {
-        this.text = text
-        isAllCaps = false
-        textSize = 15f
-        minHeight = dp(50)
-        if (primary) {
-            setTextColor(Color.WHITE)
-            background = rounded(Color.rgb(42, 91, 220), 16)
-        } else {
-            setTextColor(Color.rgb(42, 91, 220))
-            background = rounded(Color.WHITE, 16)
-        }
-    }
-
-    private fun rounded(color: Int, radius: Int) =
-        android.graphics.drawable.GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = dp(radius).toFloat()
+    private fun surface(fill: Int, radius: Int, stroke: Int? = null): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(fill)
+            cornerRadius = radius.dp.toFloat()
+            if (stroke != null) setStroke(1.dp, stroke)
         }
 
-    private fun circle(color: Int) =
-        android.graphics.drawable.GradientDrawable().apply {
-            shape = android.graphics.drawable.GradientDrawable.OVAL
-            setColor(color)
-        }
+    private fun rippleSurface(fill: Int, radius: Int, stroke: Int?, ripple: Int = 0x242F6FB0): Drawable =
+        RippleDrawable(ColorStateList.valueOf(ripple), surface(fill, radius, stroke), null)
 
-    private fun lp(top: Int = 0, bottom: Int = 0, width: Int = -1, weight: Float = 0f) =
-        LinearLayout.LayoutParams(width, if (weight > 0f) 0 else -2, weight).apply {
-            if (top != 0 || bottom != 0) setMargins(0, dp(top), 0, dp(bottom))
-        }
+    private fun color(id: Int): Int = ContextCompat.getColor(this, id)
 
-    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+    private fun shortId(id: String): String =
+        if (id.length > 14) "${id.take(10)}…${id.takeLast(4)}" else id
+
+    private fun topMargin(top: Int) = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.WRAP_CONTENT
+    ).apply { topMargin = top.dp }
+
+    private val Int.dp: Int
+        get() = (this * resources.displayMetrics.density).toInt()
 }
 
 private inline fun <reified T : android.os.Parcelable> Intent.getParcelableExtraCompat(name: String): T? =
     if (Build.VERSION.SDK_INT >= 33) getParcelableExtra(name, T::class.java)
     else @Suppress("DEPRECATION") getParcelableExtra(name)
-
-private fun ComponentActivity.registerReceiverCompat(receiver: BroadcastReceiver, filter: IntentFilter) {
-    if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-    else @Suppress("DEPRECATION") registerReceiver(receiver, filter)
-}

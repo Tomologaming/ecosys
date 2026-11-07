@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f4f5f7">
+<meta name="description" content="Ecosys Bridge: Dateien direkt zwischen deinen Geräten übertragen – ohne Cloud und ohne Konto.">
+<link rel="icon" href="favicon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:title" content="Ecosys Bridge — Dateien, direkt verbunden">
+<meta property="og:description" content="Dateien direkt zwischen deinen Geräten. Ohne Cloud, ohne Konto.">
+<meta property="og:type" content="website">
 <title>Ecosys Bridge — Dateien, direkt verbunden</title>
 <style data-section-id="01a18471-9c1d-7683-b711-b0c52ff422b0">
 :root{--ink:#e9f0f3;--muted:#a4b4ba;--dim:#788d97;--navy:#101d30;--deep:#0b1422;--panel:#17283b;--line:rgba(188,216,221,.13);--mint:#59e7b7;--mint-dark:#183f3a;--coral:#ff9879;--gold:#ebc97c;--font-head:'Space Grotesk',sans-serif;--font-body:'DM Sans',sans-serif}
@@ -28,8 +34,8 @@ main{padding:36px 0 58px}.eyebrow{color:#31845f;letter-spacing:1.5px}.eyebrow:be
 .connect-panel{padding:20px}.side-title{color:#25292c}.side-kicker{color:#777e83}.connect-state{background:#f6f7f7;border-color:rgba(30,35,40,.06)}.state-icon{color:#a97813;background:#f7f0de}.state-icon.connected{color:#31845f;background:#e7f3ec}.state-copy strong{color:#272b2e}.state-copy span,.connect-tip{color:#747b80}.connect-tip strong{color:#444b50}.divider{background:rgba(30,35,40,.08)}.device-line{color:#6d7479}.device-line span:last-child{color:#394047}.platform-chip{color:#6e757a;border-color:rgba(30,35,40,.1);background:#fafbfa}.platform-chip.active{color:#286e4f;border-color:rgba(49,132,95,.2);background:#edf6f0}.note-panel{background:#f1f7f3;border-color:rgba(49,132,95,.12)}.note-top{color:#31845f}.note-panel p{color:#59645d}.note-panel p strong{color:#303b34}.mode-panel h3{color:#353a3e}.mode-row{border-top-color:rgba(30,35,40,.07)}.mode-icon{color:#31845f}.mode-copy{color:#687177}.mode-copy b{color:#30363a}.footnote{color:#858b90}.footnote a{color:#727a7f}.footnote a:hover{color:#31845f}
 .toast{background:#e5f5ec;color:#214d35;box-shadow:0 10px 35px rgba(25,40,30,.16)}.toast.error{background:#fae9e7;color:#702d27}.toast.info{background:#eaf0f4;color:#334b59}.modal{border-color:rgba(30,35,40,.12);border-radius:20px;color:#202124;background:#fff;box-shadow:0 24px 80px rgba(24,32,27,.2)}.modal::backdrop{background:rgba(23,30,25,.34);backdrop-filter:blur(4px)}.modal p{color:#596167}.modal ul{color:#697177}.modal li::marker{color:#31845f}.small-label{color:#31845f}.browser-banner{border-color:rgba(169,120,19,.2);border-radius:11px;color:#73540e;background:#fbf6e8}
 @media(max-width:900px){.shell{padding:0 24px}.transfer{padding:21px}.connect-panel{padding:18px}}
-@media(max-width:680px){.shell{padding:0 16px}.topbar{height:62px}.local-label{font-size:10px}.main{padding-top:25px}main{padding:26px 0 42px}.hero h1{font-size:38px;letter-spacing:-1.7px}.hero p{font-size:14px}.transfer{padding:17px}.dropzone{min-height:160px}.panel{border-radius:16px}.connect-panel{padding:17px}.queue-footer .primary-button{min-height:46px}}
-@media(prefers-color-scheme:dark){:root{color-scheme:light}}
+@media(max-width:680px){.shell{padding:0 16px}.topbar{height:62px}.local-label{font-size:10px}main{padding:26px 0 42px}.hero h1{font-size:38px;letter-spacing:-1.7px}.hero p{font-size:14px}.transfer{padding:17px}.dropzone{min-height:160px}.panel{border-radius:16px}.connect-panel{padding:17px}.queue-footer .primary-button{min-height:46px}}
+
 </style>
 </head>
 <body>
@@ -61,7 +67,7 @@ main{padding:36px 0 58px}.eyebrow{color:#31845f;letter-spacing:1.5px}.eyebrow:be
       <aside class="side" aria-label="Verbindung und Gerätekompatibilität" data-section-id="01a18471-9c1d-7a9c-a089-3746dfee3211">
         <section class="panel connect-panel" aria-labelledby="connectionTitle" data-section-id="01a18471-9c1d-7aaa-b100-dd98a1a265c8">
           <div><h2 class="side-title" id="connectionTitle" data-section-id="01a18471-9c1d-7ab5-b18f-165f3e1d96ff">Direktverbindung</h2><p class="side-kicker" data-section-id="01a18471-9c1d-7ac0-b7b3-824fd8ee6b4f">Ecosys BLE · lokal im Browser</p></div>
-          <div class="connect-state"><div class="state-icon" id="stateIcon"><svg width="17" height="17" viewbox="0 0 24 24" fill="none" data-section-id="01a18471-9c1d-7adf-a46e-ed714ab5cf8d"><path d="M12 3v18l6-5-5-4 5-4-6-5Zm0 9-6-5m6 5-6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="state-copy"><strong id="stateTitle">Noch nicht verbunden</strong><span id="stateText">Erst suchen, dann Gerät auswählen.</span></div></div>
+          <div class="connect-state"><div class="state-icon" id="stateIcon"><svg width="17" height="17" viewbox="0 0 24 24" fill="none" data-section-id="01a18471-9c1d-7adf-a46e-ed714ab5cf8d"><path d="M12 3v18l6-5-5-4 5-4-6-5Zm0 9-6-5m6 5-6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="state-copy"><strong id="stateTitle">Noch nicht verbunden</strong><span id="stateText" aria-live="polite">Erst suchen, dann Gerät auswählen.</span></div></div>
           <button class="secondary-button connect-button" id="connectButton" type="button"><svg width="15" height="15" viewbox="0 0 24 24" fill="none" data-section-id="01a18471-9c1d-7b17-b0ac-9af7357c88d1"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Bluetooth-Gerät suchen</span></button>
           <p class="connect-tip" id="connectTip" data-section-id="01a18471-9c1d-7b44-891f-f06d6006c235">Braucht <strong>HTTPS</strong>, einen Chromium-Browser mit Web Bluetooth und ein Ecosys-Gerät, das BLE gerade anbietet.</p>
           <div class="divider"></div>
@@ -88,49 +94,526 @@ main{padding:36px 0 58px}.eyebrow{color:#31845f;letter-spacing:1.5px}.eyebrow:be
 <script data-section-id="01a18471-9c1d-7c74-a589-f26f7af01b79">
 (() => {
   'use strict';
-  const SERVICE='6e6f4d4f-0002-4d4f-4d4f-45434f595300';
-  const TX='6e6f4d4f-0003-4d4f-4d4f-45434f595300';
-  const RX='6e6f4d4f-0004-4d4f-4d4f-45434f595300';
-  const encoder=new TextEncoder();
-  const decoder=new TextDecoder();
-  const queue=[];
-  const state={device:null,server:null,tx:null,rx:null,frameId:700,rxFrame:null,incoming:null,toastTimer:null,busy:false};
-  const $=id=>document.getElementById(id);
-  const filePicker=$('filePicker'),dropzone=$('dropzone'),queueNode=$('queue');
-  const formatBytes=n=>{if(!n)return '0 B';const units=['B','KB','MB','GB'];let i=0,v=n;while(v>=1024&&i<units.length-1){v/=1024;i++}return `${v.toLocaleString('de-DE', {maximumFractionDigits:i?1:0})} ${units[i]}`};
-  function toast(message,kind=''){const el=$('toast');el.textContent=message;el.className=`toast show ${kind}`;clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>el.className='toast',4200)}
-  function setState(title,text,connected=false){$('stateTitle').textContent=title;$('stateText').textContent=text;$('connectionName').textContent=connected?(state.device?.name||'Ecosys-Gerät'):'—';$('stateIcon').classList.toggle('connected',connected);$('connectButton').querySelector('span').textContent=connected?'Verbindung trennen':'Bluetooth-Gerät suchen';$('connectButton').classList.toggle('primary-button',connected);$('connectButton').classList.toggle('secondary-button',!connected);$('connectButton').disabled=state.busy&&connected}
-  function iconFor(file){const ext=(file.name.split('.').pop()||'FILE').toUpperCase().slice(0,4);return ext==='JPEG'?'JPG':ext}
-  function renderQueue(){queueNode.replaceChildren();$('queueCount').textContent=`${queue.length} ${queue.length===1?'Datei':'Dateien'}`;$('queueSize').textContent=formatBytes(queue.reduce((n,x)=>n+x.file.size,0));$('sendButton').disabled=queue.length===0||state.busy;$('clearQueue').hidden=queue.length===0;$('sendLabel').textContent=state.tx?'Jetzt senden':(canShareFiles()?'Mit Ecosys teilen':'Gerät verbinden');if(!queue.length){const empty=document.createElement('div');empty.className='empty-queue';empty.textContent='Noch keine Dateien ausgewählt.';queueNode.append(empty);return}
-    queue.forEach(item=>{const row=document.createElement('div');row.className='file-row';const thumb=document.createElement(item.file.type.startsWith('image/')?'img':'div');thumb.className=item.file.type.startsWith('image/')?'file-thumb':'file-thumb file-type';if(thumb.tagName==='IMG'){if(!item.url)item.url=URL.createObjectURL(item.file);thumb.src=item.url;thumb.alt='Vorschau'}else thumb.textContent=iconFor(item.file);const meta=document.createElement('div');meta.className='file-meta';const name=document.createElement('div');name.className='file-name';name.textContent=item.file.name;name.title=item.file.name;const detail=document.createElement('div');detail.className='file-detail';detail.textContent=item.file.type||'Datei';meta.append(name,detail);const size=document.createElement('span');size.className='file-size';size.textContent=formatBytes(item.file.size);const remove=document.createElement('button');remove.className='remove-file';remove.type='button';remove.setAttribute('aria-label',`${item.file.name} entfernen`);remove.textContent='×';remove.addEventListener('click',()=>removeItem(item.id));row.append(thumb,meta,size,remove);queueNode.append(row)});
+  // Ecosys BLE UUIDs, identical on Windows, iOS and Android BLE implementations.
+  const SERVICE = '6e6f4d4f-0002-4d4f-4d4f-45434f595300';
+  const TX = '6e6f4d4f-0003-4d4f-4d4f-45434f595300';
+  const RX = '6e6f4d4f-0004-4d4f-4d4f-45434f595300';
+
+  const PROTOCOL = 'ecosys/1';
+  const SENDER = 'ecosys-web-bridge';
+  const HEADER = 10;              // ECS1 header: magic + frame id + index + count
+  const MAX_FRAME_PAYLOAD = 170;  // 180-byte frames fit the common 185-byte ATT MTU
+  const MIN_FRAME_PAYLOAD = 10;   // 20-byte ATT value at the 23-byte default MTU, minus the header
+  const CHUNK_BYTES = 1024;       // file bytes per file.chunk message
+  const MAX_FILE_BYTES = 200 * 1024 * 1024;
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const queue = [];
+  const state = { device: null, server: null, tx: null, rx: null, frameId: 700, rxFrame: null, incoming: null, toastTimer: null, busy: false, sequence: 0 };
+  let framePayload = MAX_FRAME_PAYLOAD;
+
+  const $ = id => document.getElementById(id);
+  const filePicker = $('filePicker'), dropzone = $('dropzone'), queueNode = $('queue');
+
+  const formatBytes = n => {
+    if (!n) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0, v = n;
+    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    return `${v.toLocaleString('de-DE', { maximumFractionDigits: i ? 1 : 0 })} ${units[i]}`;
+  };
+
+  function uuid() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    state.sequence += 1;
+    return `${Date.now()}-${state.sequence}-${Math.random().toString(16).slice(2)}`;
   }
-  function addFiles(list){const existing=new Set(queue.map(x=>`${x.file.name}|${x.file.size}|${x.file.lastModified}`));let added=0;for(const file of Array.from(list||[])){const key=`${file.name}|${file.size}|${file.lastModified}`;if(existing.has(key))continue;existing.add(key);queue.push({id:crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`,file,url:null});added++}renderQueue();if(added)toast(`${added} ${added===1?'Datei':'Dateien'} hinzugefügt.`,'info')}
-  function removeItem(id){const i=queue.findIndex(x=>x.id===id);if(i>=0){if(queue[i].url)URL.revokeObjectURL(queue[i].url);queue.splice(i,1);renderQueue()}}
-  function canShareFiles(){return !!(navigator.share&&navigator.canShare&&queue.length&&navigator.canShare({files:queue.map(x=>x.file)}))}
-  filePicker.addEventListener('change',e=>{addFiles(e.target.files);filePicker.value='' });
-  dropzone.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();filePicker.click()}});
-  ['dragenter','dragover'].forEach(type=>dropzone.addEventListener(type,e=>{e.preventDefault();dropzone.classList.add('is-over')}));
-  ['dragleave','drop'].forEach(type=>dropzone.addEventListener(type,e=>{e.preventDefault();dropzone.classList.remove('is-over')}));
-  dropzone.addEventListener('drop',e=>addFiles(e.dataTransfer?.files));
-  $('clearQueue').addEventListener('click',()=>{queue.forEach(x=>x.url&&URL.revokeObjectURL(x.url));queue.splice(0);renderQueue()});
-  function nextFrameId(){state.frameId=(state.frameId+1)&65535;return state.frameId}
-  function makeFrame(id,index,count,payload){const out=new Uint8Array(10+payload.length);out.set([0x45,0x43,0x53,0x31],0);const v=new DataView(out.buffer);v.setUint16(4,id,true);v.setUint16(6,index,true);v.setUint16(8,count,true);out.set(payload,10);return out}
-  async function writeMessage(message){if(!state.tx)throw new Error('Keine aktive Ecosys-Bluetoothverbindung.');const bytes=encoder.encode(JSON.stringify(message));const payloadLimit=10;const count=Math.max(1,Math.ceil(bytes.length/payloadLimit));if(count>65535)throw new Error('Nachricht ist für BLE zu groß.');const id=nextFrameId();for(let i=0;i<count;i++){const part=bytes.slice(i*payloadLimit,Math.min(bytes.length,(i+1)*payloadLimit));await state.tx.writeValueWithResponse(makeFrame(id,i,count,part));}}
-  function readU16(v,i){return v.getUint16(i,true)}
-  function onFrame(event){try{const view=event.target.value;const bytes=new Uint8Array(view.buffer,view.byteOffset,view.byteLength);if(bytes.length<10||bytes[0]!==0x45||bytes[1]!==0x43||bytes[2]!==0x53||bytes[3]!==0x31)return;const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);const id=readU16(v,4),index=readU16(v,6),count=readU16(v,8);if(!count||index>=count)return;if(index===0)state.rxFrame={id,count,next:0,parts:[]};const f=state.rxFrame;if(!f||f.id!==id||f.count!==count||f.next!==index){state.rxFrame=null;return}f.parts.push(bytes.slice(10));f.next++;if(f.next!==f.count)return;const total=f.parts.reduce((n,p)=>n+p.length,0),joined=new Uint8Array(total);let offset=0;for(const p of f.parts){joined.set(p,offset);offset+=p.length}state.rxFrame=null;const msg=JSON.parse(decoder.decode(joined));handleMessage(msg)}catch(err){console.warn('Ecosys BLE Nachricht konnte nicht gelesen werden',err)}}
-  function handleMessage(message){if(!message||message.protocol!=='ecosys/1'||typeof message.type!=='string')return;if(message.type==='hello'){toast(`Ecosys-Nachricht von ${message.payload?.deviceName||message.sender||'Gerät'} empfangen.`,'info');return}if(message.type==='file.start'){const p=message.payload||message;const size=Number(p.size),chunks=Number(p.chunks);if(!Number.isSafeInteger(size)||size<0||size>200*1024*1024||!Number.isInteger(chunks)||chunks<1||chunks>300000){toast('Datei abgelehnt: ungültige Angaben oder über 200 MB.','error');state.incoming=null;return}state.incoming={id:p.transferId,name:safeName(p.fileName),size,chunks,next:0,parts:[]};toast(`Empfang gestartet: ${state.incoming.name}`,'info');return}if(message.type==='file.chunk'){const p=message.payload||message,r=state.incoming;if(!r||p.transferId!==r.id||p.index!==r.next){state.incoming=null;toast('Datei-Block fehlt oder gehört zu einem anderen Transfer.','error');return}try{const bin=atob(p.data||'');const part=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)part[i]=bin.charCodeAt(i);r.parts.push(part);r.next++}catch{state.incoming=null;toast('Datei-Block war ungültig.','error')}return}if(message.type==='file.complete'){const p=message.payload||message,r=state.incoming;if(!r||p.transferId!==r.id||r.next!==r.chunks){state.incoming=null;toast('Datei unvollständig – kein Download erstellt.','error');return}const actual=r.parts.reduce((n,x)=>n+x.length,0);if(actual!==r.size){state.incoming=null;toast('Dateigröße stimmt nicht – Download abgebrochen.','error');return}const blob=new Blob(r.parts,{type:'application/octet-stream'});downloadBlob(blob,r.name);state.incoming=null;toast(`Empfang abgeschlossen: ${r.name}`);return}if(message.type==='error')toast(message.payload?.message||'Das Ecosys-Gerät meldet einen Fehler.','error')}
-  function safeName(name){const leaf=String(name||'Ecosys-Datei').split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,'').trim();return leaf||'Ecosys-Datei'}
-  function downloadBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=safeName(name);a.style.display='none';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
-  function fileMessage(type,transferId,file,extra={}){return {protocol:'ecosys/1',type,transferId,...extra}}
-  async function sendOne(item){const file=item.file,transferId=crypto.randomUUID?crypto.randomUUID():`${Date.now()}-${Math.random()}`,chunkSize=80,chunks=Math.max(1,Math.ceil(file.size/chunkSize));await writeMessage(fileMessage('file.start',transferId,file,{fileName:file.name,size:file.size,chunks}));for(let index=0;index<chunks;index++){if(!state.device?.gatt?.connected)throw new Error('Bluetooth-Verbindung wurde unterbrochen.');const bytes=new Uint8Array(await file.slice(index*chunkSize,Math.min(file.size,(index+1)*chunkSize)).arrayBuffer());let binary='';for(const b of bytes)binary+=String.fromCharCode(b);await writeMessage(fileMessage('file.chunk',transferId,file,{index,data:btoa(binary)}));if(index%10===0||index===chunks-1){const pct=Math.round((index+1)/chunks*100);$('stateText').textContent=`Sende ${file.name} · ${pct} %`}}await writeMessage(fileMessage('file.complete',transferId,file));}
-  async function sendQueue(){if(!state.tx||!queue.length)return;state.busy=true;$('sendButton').disabled=true;$('connectButton').disabled=true;try{for(const item of queue){$('stateText').textContent=`Sende ${item.file.name} …`;await sendOne(item)}toast('Bluetooth-Schreibvorgang abgeschlossen. Das Ziel bestätigt in diesem Protokoll nicht, ob die Datei gespeichert wurde.','info');$('stateText').textContent='Übertragung geschrieben · Speicherung nicht quittiert';}catch(err){toast(`Senden abgebrochen: ${err.message||err}`,'error');$('stateText').textContent='Übertragung abgebrochen'}finally{state.busy=false;$('connectButton').disabled=false;$('sendButton').disabled=queue.length===0;renderQueue()}}
-  async function shareFromIOS(){if(!canShareFiles())return false;try{await navigator.share({files:queue.map(x=>x.file),title:'Mit Ecosys teilen'});toast('Teilen-Dialog geschlossen. Ob Ecosys die Datei übertragen hat, kann die Website nicht erkennen.','info');return true}catch(err){if(err?.name==='AbortError'){toast('Teilen abgebrochen. Die Dateien bleiben in deiner Auswahl.','info');return true}toast(`Teilen nicht möglich: ${err.message||err}`,'error');return true}}
-  async function connectBluetooth(){if(state.device?.gatt?.connected){state.device.gatt.disconnect();return}if(!window.isSecureContext){toast('Bluetooth im Browser braucht eine sichere HTTPS-Seite.','error');return}if(!navigator.bluetooth){if(await shareFromIOS())return;showHelp();return}try{$('connectButton').disabled=true;$('connectButton').querySelector('span').textContent='Geräteauswahl öffnen …';const device=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE]}],optionalServices:[SERVICE]});device.addEventListener('gattserverdisconnected',()=>{state.server=state.tx=state.rx=null;setState('Verbindung getrennt','Das Gerät ist nicht mehr verbunden.');renderQueue();toast('Bluetooth-Verbindung getrennt.','info')});const server=await device.gatt.connect();const service=await server.getPrimaryService(SERVICE);const tx=await service.getCharacteristic(TX);state.device=device;state.server=server;state.tx=tx;try{const rx=await service.getCharacteristic(RX);state.rx=rx;await rx.startNotifications();rx.addEventListener('characteristicvaluechanged',onFrame)}catch(err){console.info('RX nicht verfügbar',err)}setState('Verbunden',`Mit ${device.name||'Ecosys-Gerät'} · lokale BLE-Verbindung`,true);$('chipWindows').classList.add('active');toast(`Verbunden mit ${device.name||'Ecosys-Gerät'}.`);renderQueue();try{await writeMessage({protocol:'ecosys/1',type:'hello',messageId:crypto.randomUUID?crypto.randomUUID():String(Date.now()),sender:'ecosys-web-bridge',timestamp:Date.now(),payload:{deviceName:'Ecosys Bridge',platform:'web',capabilities:['file.send','file.receive']}})}catch(err){console.info('Hello-Test nicht gesendet',err)}}catch(err){if(err?.name==='NotFoundError'){toast('Kein Gerät ausgewählt. Aktiviere Ecosys-Bluetooth und versuche es erneut.','info')}else toast(`Bluetooth konnte nicht verbunden werden: ${err.message||err}`,'error')}finally{$('connectButton').disabled=false;$('connectButton').querySelector('span').textContent=state.device?.gatt?.connected?'Verbindung trennen':'Bluetooth-Gerät suchen'}}
-  $('connectButton').addEventListener('click',connectBluetooth);
-  $('sendButton').addEventListener('click',async()=>{if(state.tx){await sendQueue();return}if(await shareFromIOS())return;if(navigator.bluetooth){toast('Verbinde zuerst ein kompatibles Ecosys-BLE-Gerät.','info');await connectBluetooth()}else showHelp()});
-  const help=$('helpDialog');function showHelp(){if(!help.open)help.showModal()}$('helpTop').addEventListener('click',showHelp);$('helpFooter').addEventListener('click',e=>{e.preventDefault();showHelp()});$('closeHelp').addEventListener('click',()=>help.close());$('understood').addEventListener('click',()=>help.close());help.addEventListener('click',e=>{if(e.target===help)help.close()});
-  function checkPlatform(){const ble=!!navigator.bluetooth,share=!!(navigator.share&&navigator.canShare);if(ble&&window.isSecureContext){$('connectTip').innerHTML='Chromium-Web-Bluetooth erkannt. Wähle ein Gerät mit dem Ecosys-BLE-Dienst; Berechtigungen erteilst du im Browser.';$('chipWindows').classList.add('active');$('chipAndroid').classList.add('active');$('browserBanner').textContent='Web Bluetooth ist verfügbar. Das funktioniert nur mit einem gerade aktiven Ecosys-BLE-Empfänger; der Browser fragt dich vor dem Verbinden um Erlaubnis.';$('browserBanner').classList.add('show');$('platformNote').textContent='Chromium kann eine lokale BLE-Verbindung aufbauen. Windows hat im geprüften Stand einen Datei-Empfänger; auf Android ist die native App dagegen RFCOMM/Hello statt BLE-Dateiempfang.'}else if(share){$('connectTip').textContent='Dieser Browser unterstützt kein Web Bluetooth. Du kannst ausgewählte Dateien über das System-Teilen-Menü an eine installierte App übergeben.';$('chipIOS').classList.add('active');$('browserBanner').textContent='Direktes Bluetooth ist in diesem Browser nicht verfügbar. „Mit Ecosys teilen“ öffnet nur das iOS-Teilen-Menü; die Website kann den Abschluss der App-Übertragung nicht überprüfen.';$('browserBanner').classList.add('show');$('platformNote').textContent='Web Bluetooth ist in iOS Safari nicht verfügbar. Die Teilen-Schaltfläche übergibt Dateien an die native iOS-Erweiterung, falls Ecosys dort erscheint.'}else{$('connectTip').textContent='Für die direkte BLE-Route brauchst du HTTPS und einen Chromium-Browser mit Web Bluetooth.';$('platformNote').textContent='Dieser Browser bietet keine direkte Ecosys-BLE-Verbindung und keine Dateiübergabe über das Teilen-Menü. Die Auswahl und Vorschau deiner Dateien funktioniert trotzdem lokal.'}}
-  checkPlatform();renderQueue();setState('Noch nicht verbunden','Erst suchen, dann Gerät auswählen.');
+
+  function toast(message, kind = '') {
+    const el = $('toast');
+    el.textContent = message;
+    el.className = `toast show ${kind}`;
+    clearTimeout(state.toastTimer);
+    state.toastTimer = setTimeout(() => el.className = 'toast', 4200);
+  }
+
+  function setState(title, text, connected = false) {
+    $('stateTitle').textContent = title;
+    $('stateText').textContent = text;
+    $('connectionName').textContent = connected ? (state.device?.name || 'Ecosys-Gerät') : '—';
+    $('stateIcon').classList.toggle('connected', connected);
+    $('connectButton').querySelector('span').textContent = connected ? 'Verbindung trennen' : 'Bluetooth-Gerät suchen';
+    $('connectButton').classList.toggle('primary-button', connected);
+    $('connectButton').classList.toggle('secondary-button', !connected);
+    $('connectButton').disabled = false;
+  }
+
+  function iconFor(file) {
+    const ext = (file.name.split('.').pop() || 'FILE').toUpperCase().slice(0, 4);
+    return ext === 'JPEG' ? 'JPG' : ext;
+  }
+
+  function renderQueue() {
+    queueNode.replaceChildren();
+    $('queueCount').textContent = `${queue.length} ${queue.length === 1 ? 'Datei' : 'Dateien'}`;
+    $('queueSize').textContent = formatBytes(queue.reduce((n, x) => n + x.file.size, 0));
+    $('sendButton').disabled = queue.length === 0 || state.busy;
+    $('clearQueue').hidden = queue.length === 0;
+    $('sendLabel').textContent = state.tx ? 'Jetzt senden' : (canShareFiles() ? 'Mit Ecosys teilen' : 'Gerät verbinden');
+
+    if (!queue.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-queue';
+      empty.textContent = 'Noch keine Dateien ausgewählt.';
+      queueNode.append(empty);
+      return;
+    }
+
+    queue.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      const isImage = item.file.type.startsWith('image/');
+      const thumb = document.createElement(isImage ? 'img' : 'div');
+      thumb.className = isImage ? 'file-thumb' : 'file-thumb file-type';
+      if (isImage) {
+        if (!item.url) item.url = URL.createObjectURL(item.file);
+        thumb.src = item.url;
+        thumb.alt = `Vorschau von ${item.file.name}`;
+      } else {
+        thumb.textContent = iconFor(item.file);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'file-meta';
+      const name = document.createElement('div');
+      name.className = 'file-name';
+      name.textContent = item.file.name;
+      name.title = item.file.name;
+      const detail = document.createElement('div');
+      detail.className = 'file-detail';
+      detail.textContent = item.file.type || 'Datei';
+      meta.append(name, detail);
+      const size = document.createElement('span');
+      size.className = 'file-size';
+      size.textContent = formatBytes(item.file.size);
+      const remove = document.createElement('button');
+      remove.className = 'remove-file';
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `${item.file.name} aus der Auswahl entfernen`);
+      remove.textContent = '×';
+      remove.addEventListener('click', () => removeItem(item.id));
+      row.append(thumb, meta, size, remove);
+      queueNode.append(row);
+    });
+  }
+
+  function addFiles(list) {
+    const existing = new Set(queue.map(x => `${x.file.name}|${x.file.size}|${x.file.lastModified}`));
+    let added = 0;
+    for (const file of Array.from(list || [])) {
+      const key = `${file.name}|${file.size}|${file.lastModified}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
+      queue.push({ id: uuid(), file, url: null });
+      added++;
+    }
+    renderQueue();
+    if (added) toast(`${added} ${added === 1 ? 'Datei' : 'Dateien'} hinzugefügt.`, 'info');
+  }
+
+  function removeItem(id) {
+    const i = queue.findIndex(x => x.id === id);
+    if (i >= 0) {
+      if (queue[i].url) URL.revokeObjectURL(queue[i].url);
+      queue.splice(i, 1);
+      renderQueue();
+    }
+  }
+
+  function canShareFiles() {
+    return !!(navigator.share && navigator.canShare && queue.length && navigator.canShare({ files: queue.map(x => x.file) }));
+  }
+
+  filePicker.addEventListener('change', e => { addFiles(e.target.files); filePicker.value = ''; });
+  dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); filePicker.click(); } });
+  ['dragenter', 'dragover'].forEach(type => dropzone.addEventListener(type, e => { e.preventDefault(); dropzone.classList.add('is-over'); }));
+  ['dragleave', 'drop'].forEach(type => dropzone.addEventListener(type, e => { e.preventDefault(); dropzone.classList.remove('is-over'); }));
+  dropzone.addEventListener('drop', e => addFiles(e.dataTransfer?.files));
+  $('clearQueue').addEventListener('click', () => {
+    queue.forEach(x => x.url && URL.revokeObjectURL(x.url));
+    queue.splice(0);
+    renderQueue();
+  });
+
+  // ---------------------------------------------------------------- framing
+
+  function nextFrameId() {
+    state.frameId = (state.frameId + 1) & 0xffff;
+    return state.frameId;
+  }
+
+  function makeFrame(id, index, count, payload) {
+    const out = new Uint8Array(HEADER + payload.length);
+    out.set([0x45, 0x43, 0x53, 0x31], 0);
+    const v = new DataView(out.buffer);
+    v.setUint16(4, id, true);
+    v.setUint16(6, index, true);
+    v.setUint16(8, count, true);
+    out.set(payload, HEADER);
+    return out;
+  }
+
+  function envelope(type, payload) {
+    return {
+      protocol: PROTOCOL,
+      type,
+      messageId: uuid(),
+      sender: SENDER,
+      timestamp: Date.now(),
+      payload: payload || {}
+    };
+  }
+
+  async function writeFramed(bytes) {
+    for (;;) {
+      const count = Math.max(1, Math.ceil(bytes.length / framePayload));
+      if (count > 0xffff) throw new Error('Nachricht ist für BLE zu groß.');
+      const id = nextFrameId();
+      try {
+        for (let i = 0; i < count; i++) {
+          const part = bytes.subarray(i * framePayload, Math.min(bytes.length, (i + 1) * framePayload));
+          await state.tx.writeValueWithResponse(makeFrame(id, i, count, part));
+        }
+        return;
+      } catch (err) {
+        // A peer with the default ATT MTU only accepts 20-byte writes. Restart the
+        // message with the minimal frame size; the new frame id resets the peer's
+        // reassembler, so the aborted attempt cannot corrupt the stream.
+        if (framePayload <= MIN_FRAME_PAYLOAD) throw err;
+        framePayload = MIN_FRAME_PAYLOAD;
+      }
+    }
+  }
+
+  async function writeMessage(message) {
+    if (!state.tx) throw new Error('Keine aktive Ecosys-Bluetoothverbindung.');
+    await writeFramed(encoder.encode(JSON.stringify(message)));
+  }
+
+  // --------------------------------------------------------------- receiving
+
+  function readU16(v, i) { return v.getUint16(i, true); }
+
+  function onFrame(event) {
+    try {
+      const view = event.target.value;
+      const bytes = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
+      if (!bytes.length) return;
+
+      const framed = bytes.length >= HEADER &&
+        bytes[0] === 0x45 && bytes[1] === 0x43 && bytes[2] === 0x53 && bytes[3] === 0x31;
+
+      // Native peers (Windows, iOS) also write plain UTF-8 JSON for small messages.
+      if (!framed) {
+        consumeMessage(decoder.decode(bytes));
+        return;
+      }
+
+      const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      const id = readU16(v, 4), index = readU16(v, 6), count = readU16(v, 8);
+      if (!count || index >= count) return;
+      if (index === 0) state.rxFrame = { id, count, next: 0, parts: [] };
+      const f = state.rxFrame;
+      if (!f || f.id !== id || f.count !== count || f.next !== index) { state.rxFrame = null; return; }
+      f.parts.push(bytes.slice(HEADER));
+      f.next++;
+      if (f.next !== f.count) return;
+
+      const total = f.parts.reduce((n, p) => n + p.length, 0);
+      const joined = new Uint8Array(total);
+      let offset = 0;
+      for (const p of f.parts) { joined.set(p, offset); offset += p.length; }
+      state.rxFrame = null;
+      consumeMessage(decoder.decode(joined));
+    } catch (err) {
+      console.warn('Ecosys BLE Nachricht konnte nicht gelesen werden', err);
+    }
+  }
+
+  function consumeMessage(text) {
+    let message;
+    try {
+      message = JSON.parse(text);
+    } catch {
+      console.warn('Ecosys: ungültiges JSON empfangen');
+      return;
+    }
+    handleMessage(message);
+  }
+
+  function handleMessage(message) {
+    if (!message || message.protocol !== PROTOCOL || typeof message.type !== 'string') return;
+    const payload = (message.payload && typeof message.payload === 'object') ? message.payload : {};
+
+    if (message.type === 'hello' || message.type === 'hello.ack') {
+      const name = payload.deviceName || message.sender || 'Gerät';
+      $('stateText').textContent = `${message.type} empfangen · ${name}`;
+      if (message.type === 'hello') $('connectionName').textContent = name;
+      toast(`Ecosys-Nachricht von ${name} empfangen.`, 'info');
+      return;
+    }
+
+    if (message.type === 'file.start') {
+      const size = Number(payload.size), chunks = Number(payload.chunks);
+      if (!Number.isSafeInteger(size) || size < 0 || size > MAX_FILE_BYTES ||
+          !Number.isInteger(chunks) || chunks < 1 || chunks > 300000) {
+        toast('Datei abgelehnt: ungültige Angaben oder über 200 MB.', 'error');
+        state.incoming = null;
+        return;
+      }
+      state.incoming = { id: payload.transferId, name: safeName(payload.fileName), size, chunks, next: 0, parts: [] };
+      toast(`Empfang gestartet: ${state.incoming.name}`, 'info');
+      return;
+    }
+
+    if (message.type === 'file.chunk') {
+      const r = state.incoming;
+      if (!r || payload.transferId !== r.id || payload.index !== r.next) {
+        state.incoming = null;
+        toast('Datei-Block fehlt oder gehört zu einem anderen Transfer.', 'error');
+        return;
+      }
+      try {
+        const bin = atob(payload.data || '');
+        const part = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) part[i] = bin.charCodeAt(i);
+        r.parts.push(part);
+        r.next++;
+      } catch {
+        state.incoming = null;
+        toast('Datei-Block war ungültig.', 'error');
+      }
+      return;
+    }
+
+    if (message.type === 'file.complete') {
+      const r = state.incoming;
+      if (!r || payload.transferId !== r.id || r.next !== r.chunks) {
+        state.incoming = null;
+        toast('Datei unvollständig – kein Download erstellt.', 'error');
+        return;
+      }
+      const actual = r.parts.reduce((n, x) => n + x.length, 0);
+      if (actual !== r.size) {
+        state.incoming = null;
+        toast('Dateigröße stimmt nicht – Download abgebrochen.', 'error');
+        return;
+      }
+      downloadBlob(new Blob(r.parts, { type: 'application/octet-stream' }), r.name);
+      state.incoming = null;
+      toast(`Empfang abgeschlossen: ${r.name}`);
+      return;
+    }
+
+    if (message.type === 'error') {
+      toast(payload.message || 'Das Ecosys-Gerät meldet einen Fehler.', 'error');
+    }
+  }
+
+  function safeName(name) {
+    const leaf = String(name || 'Ecosys-Datei')
+      .split(/[\\/]/).pop()
+      .replace(/[\u0000-\u001f]/g, '')
+      .trim();
+    return leaf || 'Ecosys-Datei';
+  }
+
+  function downloadBlob(blob, name) {
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url;
+    a.download = safeName(name);
+    a.style.display = 'none';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  // ----------------------------------------------------------------- sending
+
+  function toBase64(bytes) {
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  async function sendOne(item) {
+    const file = item.file;
+    const transferId = uuid();
+    const chunks = Math.max(1, Math.ceil(file.size / CHUNK_BYTES));
+
+    await writeMessage(envelope('file.start', { transferId, fileName: file.name, size: file.size, chunks }));
+
+    for (let index = 0; index < chunks; index++) {
+      if (!state.device?.gatt?.connected) throw new Error('Bluetooth-Verbindung wurde unterbrochen.');
+      const bytes = new Uint8Array(await file.slice(index * CHUNK_BYTES, Math.min(file.size, (index + 1) * CHUNK_BYTES)).arrayBuffer());
+      await writeMessage(envelope('file.chunk', { transferId, index, data: toBase64(bytes) }));
+      if (index % 10 === 0 || index === chunks - 1) {
+        const pct = Math.round((index + 1) / chunks * 100);
+        $('stateText').textContent = `Sende ${file.name} · ${pct} %`;
+      }
+    }
+
+    await writeMessage(envelope('file.complete', { transferId }));
+  }
+
+  async function sendQueue() {
+    if (!state.tx || !queue.length) return;
+    state.busy = true;
+    $('sendButton').disabled = true;
+    $('connectButton').disabled = true;
+    try {
+      for (const item of queue) {
+        $('stateText').textContent = `Sende ${item.file.name} …`;
+        await sendOne(item);
+      }
+      toast('Bluetooth-Schreibvorgang abgeschlossen. Das Ziel bestätigt in diesem Protokoll nicht, ob die Datei gespeichert wurde.', 'info');
+      $('stateText').textContent = 'Übertragung geschrieben · Speicherung nicht quittiert';
+    } catch (err) {
+      toast(`Senden abgebrochen: ${err.message || err}`, 'error');
+      $('stateText').textContent = 'Übertragung abgebrochen';
+    } finally {
+      state.busy = false;
+      $('connectButton').disabled = false;
+      $('sendButton').disabled = queue.length === 0;
+      renderQueue();
+    }
+  }
+
+  async function shareFromIOS() {
+    if (!canShareFiles()) return false;
+    try {
+      await navigator.share({ files: queue.map(x => x.file), title: 'Mit Ecosys teilen' });
+      toast('Teilen-Dialog geschlossen. Ob Ecosys die Datei übertragen hat, kann die Website nicht erkennen.', 'info');
+      return true;
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        toast('Teilen abgebrochen. Die Dateien bleiben in deiner Auswahl.', 'info');
+        return true;
+      }
+      toast(`Teilen nicht möglich: ${err.message || err}`, 'error');
+      return true;
+    }
+  }
+
+  async function connectBluetooth() {
+    if (state.device?.gatt?.connected) { state.device.gatt.disconnect(); return; }
+    if (!window.isSecureContext) { toast('Bluetooth im Browser braucht eine sichere HTTPS-Seite.', 'error'); return; }
+    if (!navigator.bluetooth) { if (await shareFromIOS()) return; showHelp(); return; }
+
+    try {
+      $('connectButton').disabled = true;
+      $('connectButton').querySelector('span').textContent = 'Geräteauswahl öffnen …';
+      const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [SERVICE] }], optionalServices: [SERVICE] });
+      device.addEventListener('gattserverdisconnected', () => {
+        if (state.rx) state.rx.removeEventListener('characteristicvaluechanged', onFrame);
+        state.server = state.tx = state.rx = null;
+        state.device = null;
+        state.rxFrame = null;
+        framePayload = MAX_FRAME_PAYLOAD;
+        setState('Verbindung getrennt', 'Das Gerät ist nicht mehr verbunden.');
+        renderQueue();
+        toast('Bluetooth-Verbindung getrennt.', 'info');
+      });
+
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE);
+      const tx = await service.getCharacteristic(TX);
+      state.device = device;
+      state.server = server;
+      state.tx = tx;
+
+      try {
+        const rx = await service.getCharacteristic(RX);
+        state.rx = rx;
+        await rx.startNotifications();
+        rx.addEventListener('characteristicvaluechanged', onFrame);
+      } catch (err) {
+        console.info('RX nicht verfügbar', err);
+      }
+
+      setState('Verbunden', `Mit ${device.name || 'Ecosys-Gerät'} · lokale BLE-Verbindung`, true);
+      $('chipWindows').classList.add('active');
+      toast(`Verbunden mit ${device.name || 'Ecosys-Gerät'}.`);
+      renderQueue();
+
+      try {
+        await writeMessage(envelope('hello', {
+          deviceName: 'Ecosys Bridge',
+          platform: 'web',
+          capabilities: ['hello', 'file.send', 'file.receive']
+        }));
+      } catch (err) {
+        console.info('Hello-Test nicht gesendet', err);
+      }
+    } catch (err) {
+      if (err?.name === 'NotFoundError') {
+        toast('Kein Gerät ausgewählt. Aktiviere Ecosys-Bluetooth und versuche es erneut.', 'info');
+      } else {
+        toast(`Bluetooth konnte nicht verbunden werden: ${err.message || err}`, 'error');
+      }
+    } finally {
+      $('connectButton').disabled = false;
+      $('connectButton').querySelector('span').textContent = state.device?.gatt?.connected ? 'Verbindung trennen' : 'Bluetooth-Gerät suchen';
+    }
+  }
+
+  $('connectButton').addEventListener('click', connectBluetooth);
+  $('sendButton').addEventListener('click', async () => {
+    if (state.tx) { await sendQueue(); return; }
+    if (await shareFromIOS()) return;
+    if (navigator.bluetooth) {
+      toast('Verbinde zuerst ein kompatibles Ecosys-BLE-Gerät.', 'info');
+      await connectBluetooth();
+    } else {
+      showHelp();
+    }
+  });
+
+  const help = $('helpDialog');
+  function showHelp() { if (!help.open) help.showModal(); }
+  $('helpTop').addEventListener('click', showHelp);
+  $('helpFooter').addEventListener('click', e => { e.preventDefault(); showHelp(); });
+  $('closeHelp').addEventListener('click', () => help.close());
+  $('understood').addEventListener('click', () => help.close());
+  help.addEventListener('click', e => { if (e.target === help) help.close(); });
+
+  function checkPlatform() {
+    const ble = !!navigator.bluetooth, share = !!(navigator.share && navigator.canShare);
+    if (ble && window.isSecureContext) {
+      $('connectTip').textContent = 'Chromium-Web-Bluetooth erkannt. Wähle ein Gerät mit dem Ecosys-BLE-Dienst; Berechtigungen erteilst du im Browser.';
+      $('chipWindows').classList.add('active');
+      $('chipAndroid').classList.add('active');
+      $('browserBanner').textContent = 'Web Bluetooth ist verfügbar. Das funktioniert nur mit einem gerade aktiven Ecosys-BLE-Empfänger; der Browser fragt dich vor dem Verbinden um Erlaubnis.';
+      $('browserBanner').classList.add('show');
+      $('platformNote').textContent = 'Chromium kann eine lokale BLE-Verbindung aufbauen. Windows hat im geprüften Stand einen Datei-Empfänger; auf Android ist die native App dagegen RFCOMM/Hello statt BLE-Dateiempfang.';
+    } else if (share) {
+      $('connectTip').textContent = 'Dieser Browser unterstützt kein Web Bluetooth. Du kannst ausgewählte Dateien über das System-Teilen-Menü an eine installierte App übergeben.';
+      $('chipIOS').classList.add('active');
+      $('browserBanner').textContent = 'Direktes Bluetooth ist in diesem Browser nicht verfügbar. „Mit Ecosys teilen“ öffnet nur das iOS-Teilen-Menü; die Website kann den Abschluss der App-Übertragung nicht überprüfen.';
+      $('browserBanner').classList.add('show');
+      $('platformNote').textContent = 'Web Bluetooth ist in iOS Safari nicht verfügbar. Die Teilen-Schaltfläche übergibt Dateien an die native iOS-Erweiterung, falls Ecosys dort erscheint.';
+    } else {
+      $('connectTip').textContent = 'Für die direkte BLE-Route brauchst du HTTPS und einen Chromium-Browser mit Web Bluetooth.';
+      $('platformNote').textContent = 'Dieser Browser bietet keine direkte Ecosys-BLE-Verbindung und keine Dateiübergabe über das Teilen-Menü. Die Auswahl und Vorschau deiner Dateien funktioniert trotzdem lokal.';
+    }
+  }
+
+  checkPlatform();
+  renderQueue();
+  setState('Noch nicht verbunden', 'Erst suchen, dann Gerät auswählen.');
 })();
 </script>
 </body>
