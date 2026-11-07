@@ -3,6 +3,7 @@ using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using Ecosys.Windows.Protocol;
 using Ecosys.Windows.Security;
+using Ecosys.Windows.Sync;
 using Ecosys.Windows.Transport;
 
 namespace Ecosys.Windows.UI;
@@ -30,9 +31,15 @@ internal sealed class EcosysForm : Form
     private readonly RoundedButton disconnectButton = new();
     private readonly List<string> activity = new();
     private readonly Label localIdLabel = new();
+    private readonly Label clipboardDetail = new();
+    private readonly RoundedButton clipboardToggle = new();
+    private readonly RoundedButton clipboardSendButton = new();
+    private readonly System.Windows.Forms.Timer clipboardTimer = new();
+    private readonly ClipboardSync clipboard = new();
 
     private DeviceIdentity? identity;
     private string localSender = "windows";
+    private bool clipboardBusy;
 
     public EcosysForm()
     {
@@ -50,6 +57,9 @@ internal sealed class EcosysForm : Form
         BuildUi();
         WireEvents();
 
+        clipboardTimer.Interval = 800;
+        clipboardTimer.Tick += async (_, _) => await PollClipboardAsync();
+
         AddLog("Ecosys gestartet");
         Shown += async (_, _) =>
         {
@@ -60,6 +70,8 @@ internal sealed class EcosysForm : Form
         Resize += (_, _) => LayoutChrome();
         FormClosed += async (_, _) =>
         {
+            clipboardTimer.Stop();
+            clipboardTimer.Dispose();
             identity?.Dispose();
             await transport.DisposeAsync();
         };
@@ -235,6 +247,9 @@ internal sealed class EcosysForm : Form
 
         content.AddItem(Section("VERBINDUNG"), 6);
         content.AddItem(BuildConnectionCard(), 18);
+
+        content.AddItem(Section("ZWISCHENABLAGE"), 6);
+        content.AddItem(BuildClipboardCard(), 18);
 
         content.AddItem(Section("AKTIVITÄT"), 6);
         activityLabel.Font = Theme.Mono;
@@ -491,6 +506,60 @@ internal sealed class EcosysForm : Form
         return card;
     }
 
+    private RoundedPanel BuildClipboardCard()
+    {
+        var card = CreateCard(126);
+
+        var title = new Label
+        {
+            Text = "Text zwischen den Geräten teilen",
+            Font = Theme.CardTitle,
+            ForeColor = Theme.Ink,
+            AutoSize = true,
+            Location = new Point(16, 14),
+            BackColor = Color.Transparent
+        };
+
+        clipboardDetail.Text = "Verbinde zuerst ein Gerät.";
+        clipboardDetail.Font = Theme.BodySmall;
+        clipboardDetail.ForeColor = Theme.Muted;
+        clipboardDetail.AutoSize = false;
+        clipboardDetail.AutoEllipsis = true;
+        clipboardDetail.Location = new Point(16, 38);
+        clipboardDetail.Size = new Size(DefaultCardWidth - 32, 30);
+        clipboardDetail.BackColor = Color.Transparent;
+
+        clipboardToggle.Text = "Teilen aktivieren";
+        clipboardToggle.Size = new Size(150, 34);
+        clipboardToggle.Location = new Point(16, 78);
+        clipboardToggle.FillColor = Color.FromArgb(232, 238, 242);
+        clipboardToggle.HoverColor = Color.FromArgb(219, 229, 235);
+        clipboardToggle.PressedColor = Color.FromArgb(208, 219, 226);
+        clipboardToggle.TextColor = Theme.Ink;
+        clipboardToggle.HoverTextColor = Theme.Ink;
+        clipboardToggle.Radius = 9;
+        clipboardToggle.Font = Theme.Semibold;
+        clipboardToggle.Enabled = false;
+        clipboardToggle.Click += async (_, _) => await ToggleClipboardSharingAsync();
+
+        clipboardSendButton.Text = "Jetzt senden";
+        clipboardSendButton.Size = new Size(112, 34);
+        clipboardSendButton.Location = new Point(176, 78);
+        clipboardSendButton.FillColor = Theme.Green;
+        clipboardSendButton.HoverColor = Theme.GreenHover;
+        clipboardSendButton.PressedColor = Theme.GreenHover;
+        clipboardSendButton.TextColor = Color.White;
+        clipboardSendButton.Radius = 9;
+        clipboardSendButton.Enabled = false;
+        clipboardSendButton.Click += async (_, _) => await ShareClipboardAsync(force: true);
+
+        card.Controls.Add(title);
+        card.Controls.Add(clipboardDetail);
+        card.Controls.Add(clipboardToggle);
+        card.Controls.Add(clipboardSendButton);
+        return card;
+    }
+
     private static RoundedPanel CreateCard(int height) => new()
     {
         Height = height,
@@ -609,6 +678,23 @@ internal sealed class EcosysForm : Form
         }
 
         ReceivedMessage.TryParse(raw, out var received);
+
+        if (received?.Type == "clipboard.set")
+        {
+            HandleIncomingClipboard(raw);
+            return;
+        }
+
+        if (received?.Type == "clipboard.state")
+        {
+            if (EcosysMessage.TryParseClipboardState(raw, out var enabled, out _))
+            {
+                SetStatus(enabled ? "Gegenstelle teilt Zwischenablage" : "Gegenstelle teilt nicht");
+                AddLog($"← clipboard.state · {(enabled ? "an" : "aus")}");
+            }
+            return;
+        }
+
         var text = received is null
             ? $"← {Truncate(raw, 48)}"
             : $"← {received.Type}{(string.IsNullOrWhiteSpace(received.DeviceName) ? "" : " · " + received.DeviceName)}";
@@ -630,6 +716,7 @@ internal sealed class EcosysForm : Form
         statusDot.Fill = connected ? Theme.Green : Color.FromArgb(120, 138, 148);
         sendButton.Enabled = connected;
         disconnectButton.Enabled = connected;
+        UpdateClipboardUi();
     }
 
     private void SetConnection(string? deviceName, string detail)
@@ -646,6 +733,205 @@ internal sealed class EcosysForm : Form
         sendButton.Enabled = connected;
         disconnectButton.Enabled = connected;
         statusDot.Fill = connected ? Theme.Green : Color.FromArgb(120, 138, 148);
+
+        if (!connected)
+        {
+            clipboard.SetEnabled(false);
+            clipboardTimer.Stop();
+        }
+
+        UpdateClipboardUi();
+    }
+
+    // ---------------------------------------------------------- clipboard
+
+    private void UpdateClipboardUi()
+    {
+        var connected = transport.IsConnected;
+        var sharing = clipboard.Enabled;
+
+        clipboardToggle.Text = sharing ? "Teilen beenden" : "Teilen aktivieren";
+        clipboardToggle.Enabled = connected;
+        clipboardSendButton.Enabled = connected && sharing;
+
+        clipboardDetail.Text = !connected
+            ? "Verbinde zuerst ein Gerät."
+            : sharing
+                ? "An · Text wird in beide Richtungen übertragen, solange die Verbindung steht."
+                : "Aus · nichts wird übertragen. Aktivieren erfordert eine Bestätigung.";
+    }
+
+    private static string? ReadClipboardText()
+    {
+        try
+        {
+            return Clipboard.ContainsText() ? Clipboard.GetText() : null;
+        }
+        catch (ExternalException)
+        {
+            // Another process holds the clipboard open; the next poll retries.
+            return null;
+        }
+    }
+
+    private static bool TrySetClipboard(string text)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                Clipboard.SetDataObject(text, true);
+                return true;
+            }
+            catch (ExternalException)
+            {
+                Thread.Sleep(40);
+            }
+        }
+
+        return false;
+    }
+
+    private async Task PollClipboardAsync()
+    {
+        if (clipboardBusy)
+            return;
+
+        clipboardBusy = true;
+        try
+        {
+            await ShareClipboardAsync();
+        }
+        finally
+        {
+            clipboardBusy = false;
+        }
+    }
+
+    private async Task ShareClipboardAsync(bool force = false)
+    {
+        if (!clipboard.Enabled)
+        {
+            if (force)
+            {
+                SetStatus("Zwischenablage ist aus");
+                AddLog("Zwischenablage: erst teilen aktivieren");
+            }
+            return;
+        }
+
+        if (!transport.IsConnected)
+        {
+            if (force)
+            {
+                SetStatus("Kein Gerät verbunden");
+                AddLog("Zwischenablage braucht eine Verbindung");
+            }
+            return;
+        }
+
+        if (force)
+            clipboard.AllowResend();
+
+        var update = clipboard.Outgoing(ReadClipboardText());
+        if (update is null)
+        {
+            if (force)
+            {
+                SetStatus("Nichts zu senden");
+                AddLog("Zwischenablage leer oder zu groß");
+            }
+            return;
+        }
+
+        try
+        {
+            await transport.SendAsync(EcosysMessage.ClipboardSet(localSender, update).ToJsonString());
+            SetStatus("Zwischenablage gesendet");
+            AddLog($"→ clipboard.set · {update.Text.Length} Zeichen");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"→ clipboard.set fehlgeschlagen: {ex.Message}");
+        }
+    }
+
+    private void HandleIncomingClipboard(string raw)
+    {
+        if (!EcosysMessage.TryParseClipboard(raw, out var text, out var hash, out var bytes))
+        {
+            AddLog("← clipboard.set ignoriert");
+            return;
+        }
+
+        var applied = clipboard.Incoming(text, hash, bytes);
+        if (applied is null)
+        {
+            AddLog("← clipboard.set ignoriert");
+            return;
+        }
+
+        if (!TrySetClipboard(applied.Text))
+        {
+            AddLog("Zwischenablage konnte nicht gesetzt werden");
+            return;
+        }
+
+        SetStatus("Zwischenablage empfangen");
+        AddLog($"← clipboard.set · {applied.Text.Length} Zeichen");
+        UpdateClipboardUi();
+    }
+
+    private async Task ToggleClipboardSharingAsync()
+    {
+        if (!transport.IsConnected)
+        {
+            SetStatus("Kein Gerät verbunden");
+            AddLog("Zwischenablage braucht eine Verbindung");
+            return;
+        }
+
+        if (clipboard.Enabled)
+        {
+            clipboard.SetEnabled(false);
+            clipboardTimer.Stop();
+            await SendClipboardStateAsync(false);
+            SetStatus("Teilen beendet");
+            AddLog("Zwischenablage: aus");
+            UpdateClipboardUi();
+            return;
+        }
+
+        var answer = MessageBox.Show(
+            this,
+            "Die Zwischenablage läuft im Klartext über Bluetooth. Die verschlüsselte Sitzung ist noch nicht fertig – teile nur mit Geräten, denen du vertraust.\n\nTrotzdem aktivieren?",
+            "Verbindung ist nicht verschlüsselt",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2);
+
+        if (answer != DialogResult.Yes)
+            return;
+
+        clipboard.SetEnabled(true);
+        clipboardTimer.Start();
+        await SendClipboardStateAsync(true);
+        SetStatus("Teilen aktiv");
+        AddLog("Zwischenablage: an");
+        UpdateClipboardUi();
+        await ShareClipboardAsync();
+    }
+
+    private async Task SendClipboardStateAsync(bool enabled)
+    {
+        try
+        {
+            await transport.SendAsync(EcosysMessage.ClipboardState(localSender, enabled).ToJsonString());
+        }
+        catch (Exception ex)
+        {
+            AddLog($"clipboard.state nicht gesendet: {ex.Message}");
+        }
     }
 
     private void AddLog(string message)

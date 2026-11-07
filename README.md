@@ -4,9 +4,11 @@ A direct connection between Windows, Android, iOS/iPadOS — and later macOS. De
 other over Bluetooth and talk to each other; no cloud, no account, no relay server.
 
 Current status: Windows, Android and iOS apps exchange `hello` messages, the Windows and iOS
-apps plus the web bridge speak the Ecosys BLE file-transfer messages. Pairing and encrypted
-sessions are designed (see [protocol/security.md](protocol/security.md)) but not implemented
-yet, so treat today's build as a development preview.
+apps plus the web bridge speak the Ecosys BLE file-transfer messages, and Windows ↔ Android can
+share plain-text clipboard content — off by default, only after the connection was confirmed.
+Pairing and encrypted sessions are designed (see [protocol/security.md](protocol/security.md))
+but not implemented yet, so clipboard traffic is unencrypted and today's build is a development
+preview.
 
 | Part | Path | State |
 |------|------|-------|
@@ -21,6 +23,7 @@ yet, so treat today's build as a development preview.
 ```powershell
 # Windows client
 dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj -c Release
+dotnet run --project windows/Ecosys.SelfTest/Ecosys.SelfTest.csproj -c Release
 dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj -c Release -r win-x64 --self-contained true -o dist/publish
 
 # Installer (Inno Setup 7)
@@ -31,6 +34,7 @@ dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj -c Release -r win-x6
 ```bash
 # Android (needs JDK 17 and the Android SDK 35)
 cd android && gradle assembleDebug
+cd android && gradle testDebugUnitTest
 ```
 
 The iOS app is built by the `Build iOS` workflow on a macOS runner; local builds need Xcode 15+.

@@ -2,10 +2,13 @@ package com.tomologaming.ecosys
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -29,6 +32,7 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -46,9 +50,17 @@ class MainActivity : ComponentActivity() {
     private lateinit var scanButton: Button
     private lateinit var sendButton: Button
     private lateinit var disconnectButton: Button
+    private lateinit var clipboardDetail: TextView
+    private lateinit var clipboardToggle: Button
+    private lateinit var clipboardSendButton: Button
 
     private var transport: BluetoothTransport? = null
     private var identity: DeviceIdentity? = null
+    private val clipboardSync = ClipboardSync()
+    private var clipboardManager: ClipboardManager? = null
+    private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
+        runOnUiThread { shareLocalClipboard() }
+    }
     private val knownDevices = LinkedHashMap<String, BluetoothDevice>()
     private val log = ArrayDeque<String>()
     private var receiverRegistered = false
@@ -116,6 +128,10 @@ class MainActivity : ComponentActivity() {
         identity = runCatching { DeviceIdentity() }.getOrNull()
         deviceIdText.text = identity?.deviceId?.let(::shortId) ?: "nicht verfügbar"
 
+        clipboardManager = getSystemService(ClipboardManager::class.java)
+        clipboardManager?.addPrimaryClipChangedListener(clipboardListener)
+        updateClipboardUi()
+
         registerDiscoveryReceiver()
         addLog("Ecosys gestartet")
 
@@ -156,6 +172,9 @@ class MainActivity : ComponentActivity() {
 
         content.addView(sectionLabel("VERBINDUNG"), topMargin(22))
         content.addView(buildConnectionCard(), topMargin(8))
+
+        content.addView(sectionLabel("ZWISCHENABLAGE"), topMargin(22))
+        content.addView(buildClipboardCard(), topMargin(8))
 
         content.addView(sectionLabel("AKTIVITÄT"), topMargin(22))
         content.addView(buildActivityCard(), topMargin(8))
@@ -360,6 +379,37 @@ class MainActivity : ComponentActivity() {
         return card
     }
 
+    private fun buildClipboardCard(): View {
+        val card = cardContainer()
+
+        card.addView(label("Text zwischen den Geräten teilen", 15f, color(R.color.ecosys_ink), medium = true))
+        clipboardDetail = label(
+            "Verbinde zuerst ein Gerät.",
+            12f,
+            color(R.color.ecosys_muted)
+        ).apply { setPadding(0, 4.dp, 0, 0) }
+        card.addView(clipboardDetail)
+
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        clipboardToggle = actionButton("Teilen aktivieren", primary = false)
+        clipboardToggle.setOnClickListener { toggleClipboardSharing() }
+        buttons.addView(clipboardToggle, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        clipboardSendButton = actionButton("Jetzt senden", primary = true)
+        clipboardSendButton.setOnClickListener { shareLocalClipboard(force = true) }
+        buttons.addView(clipboardSendButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { leftMargin = 8.dp })
+
+        card.addView(buttons, topMargin(14))
+        return card
+    }
+
     private fun buildActivityCard(): View {
         val card = cardContainer()
         activityText = label("Noch keine Aktivität.", 10f, color(R.color.ecosys_muted)).apply {
@@ -482,9 +532,13 @@ class MainActivity : ComponentActivity() {
                 adapter = adapter,
                 onMessage = { message ->
                     runOnUiThread {
-                        setStatus("Empfangen: ${message.type}")
-                        val name = message.payload.optString("deviceName")
-                        addLog("← ${message.type}${if (name.isEmpty()) "" else " · $name"}")
+                        if (message.type == "clipboard.set") {
+                            handleIncomingClipboard(message.payload)
+                        } else {
+                            setStatus("Empfangen: ${message.type}")
+                            val name = message.payload.optString("deviceName")
+                            addLog("← ${message.type}${if (name.isEmpty()) "" else " · $name"}")
+                        }
                     }
                 },
                 onState = { state ->
@@ -502,6 +556,12 @@ class MainActivity : ComponentActivity() {
                             "Bluetooth Classic · Nachrichten werden direkt übertragen."
                         else "Wähle oben ein Gerät aus, um eine Verbindung aufzubauen."
                         setStatus(if (connected) "Verbunden mit ${now ?: "Gerät"}" else "Bereit für Geräte in der Nähe")
+                        if (connected) {
+                            announceClipboardState()
+                        } else {
+                            clipboardSync.setEnabled(false)
+                        }
+                        updateClipboardUi()
                     }
                 }
             ).also { it.startServer() }
@@ -554,9 +614,141 @@ class MainActivity : ComponentActivity() {
         addLog(if (sent) "→ hello gesendet" else "→ hello fehlgeschlagen")
     }
 
+    private fun announceClipboardState() {
+        val active = transport ?: return
+        if (!active.isConnected) return
+        active.send(EcosysMessage.clipboardState(senderId(), clipboardSync.enabled))
+    }
+
     private fun disconnect() {
+        clipboardSync.setEnabled(false)
         transport?.disconnect()
         updateConnectionButtons(false)
+        updateClipboardUi()
+    }
+
+    // ---------------------------------------------------------- clipboard
+
+    private fun senderId(): String = identity?.deviceId ?: "android-${Build.MODEL}"
+
+    private fun localClipboardText(): String? {
+        val clip = clipboardManager?.primaryClip ?: return null
+        if (clip.itemCount == 0) return null
+        return clip.getItemAt(0).coerceToText(this)?.toString()
+    }
+
+    private fun applyClipboard(text: String) {
+        runCatching { clipboardManager?.setPrimaryClip(ClipData.newPlainText("Ecosys", text)) }
+            .onFailure { addLog("Zwischenablage konnte nicht gesetzt werden: ${it.message}") }
+    }
+
+    /**
+     * Sends the local clipboard when sharing is on. [force] is the explicit
+     * "Jetzt senden" action and also re-sends a value that was already sent.
+     */
+    private fun shareLocalClipboard(force: Boolean = false) {
+        if (!clipboardSync.enabled) {
+            if (force) {
+                setStatus("Zwischenablage ist aus")
+                addLog("Zwischenablage: erst teilen aktivieren")
+            }
+            return
+        }
+        val active = transport
+        if (active == null || !active.isConnected) {
+            if (force) {
+                setStatus("Kein Gerät verbunden")
+                addLog("Zwischenablage braucht eine Verbindung")
+            }
+            return
+        }
+
+        if (force) clipboardSync.allowResend()
+        val update = clipboardSync.outgoing(localClipboardText())
+        if (update == null) {
+            if (force) {
+                setStatus("Nichts zu senden")
+                addLog("Zwischenablage leer oder zu groß")
+            }
+            return
+        }
+
+        val sent = active.send(EcosysMessage.clipboardSet(senderId(), update))
+        if (sent) {
+            setStatus("Zwischenablage gesendet")
+            addLog("→ clipboard.set · ${update.text.length} Zeichen")
+        } else {
+            addLog("→ clipboard.set fehlgeschlagen")
+        }
+    }
+
+    private fun handleIncomingClipboard(payload: JSONObject) {
+        val applied = clipboardSync.incoming(
+            payload.optString("text"),
+            payload.optString("hash"),
+            payload.optInt("bytes", -1)
+        )
+        if (applied == null) {
+            addLog("← clipboard.set ignoriert")
+            return
+        }
+        applyClipboard(applied.text)
+        setStatus("Zwischenablage empfangen")
+        addLog("← clipboard.set · ${applied.text.length} Zeichen")
+        updateClipboardUi()
+    }
+
+    private fun toggleClipboardSharing() {
+        val active = transport
+        if (active == null || !active.isConnected) {
+            setStatus("Kein Gerät verbunden")
+            addLog("Zwischenablage braucht eine Verbindung")
+            return
+        }
+
+        if (clipboardSync.enabled) {
+            clipboardSync.setEnabled(false)
+            active.send(EcosysMessage.clipboardState(senderId(), false))
+            setStatus("Teilen beendet")
+            addLog("Zwischenablage: aus")
+            updateClipboardUi()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Verbindung ist nicht verschlüsselt")
+            .setMessage(
+                "Die Zwischenablage läuft im Klartext über Bluetooth. Die verschlüsselte " +
+                    "Sitzung ist noch nicht fertig – teile nur mit Geräten, denen du vertraust."
+            )
+            .setNegativeButton("Abbrechen", null)
+            .setPositiveButton("Trotzdem aktivieren") { _, _ ->
+                clipboardSync.setEnabled(true)
+                active.send(EcosysMessage.clipboardState(senderId(), true))
+                setStatus("Teilen aktiv")
+                addLog("Zwischenablage: an")
+                updateClipboardUi()
+                shareLocalClipboard()
+            }
+            .show()
+    }
+
+    private fun updateClipboardUi() {
+        if (!::clipboardDetail.isInitialized) return
+        val connected = transport?.isConnected == true
+        val sharing = clipboardSync.enabled
+
+        clipboardToggle.text = if (sharing) "Teilen beenden" else "Teilen aktivieren"
+        clipboardToggle.isEnabled = connected
+        clipboardToggle.alpha = if (connected) 1f else 0.45f
+        clipboardSendButton.isEnabled = connected && sharing
+        clipboardSendButton.alpha = if (connected && sharing) 1f else 0.45f
+
+        clipboardDetail.text = when {
+            !connected -> "Verbinde zuerst ein Gerät."
+            sharing -> "An · Text wird in beide Richtungen übertragen, solange die Verbindung steht."
+            else -> "Aus · nichts wird übertragen. Aktivieren erfordert eine Bestätigung."
+        }
     }
 
     private fun updateConnectionButtons(connected: Boolean) {
@@ -564,6 +756,7 @@ class MainActivity : ComponentActivity() {
             button.isEnabled = connected
             button.alpha = if (connected) 1f else 0.45f
         }
+        updateClipboardUi()
         statusDot.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(if (connected) color(R.color.ecosys_green) else 0xFF8496A0.toInt())
@@ -614,6 +807,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        clipboardManager?.removePrimaryClipChangedListener(clipboardListener)
         if (receiverRegistered) {
             runCatching { unregisterReceiver(discoveryReceiver) }
             receiverRegistered = false

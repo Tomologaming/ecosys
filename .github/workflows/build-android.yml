@@ -42,6 +42,10 @@ jobs:
         working-directory: android
         run: gradle assembleDebug
 
+      - name: Run JVM unit tests
+        working-directory: android
+        run: gradle testDebugUnitTest
+
       - name: Rename APK
         env:
           BUILD_NAME: ${{ inputs.build_name }}

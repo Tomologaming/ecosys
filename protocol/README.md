@@ -17,10 +17,10 @@ Windows, iOS and the web bridge implement the envelope and framing today:
 | Transport | Platform | Implemented |
 |-----------|----------|-------------|
 | BLE GATT (service `6e6f4d4f-0002-…`) | Windows server + client, iOS server + client, web client | hello, file.*, ECS1 framing |
-| RFCOMM (service `6e6f4d4f-0001-…`) | Android server + client, Windows client | newline-delimited JSON control messages |
+| RFCOMM (service `6e6f4d4f-0001-…`) | Android server + client, Windows client | newline-delimited JSON: hello, clipboard.* |
 
 Pairing and the encrypted session described in `security.md` are designed but not implemented
-yet; application data therefore stays limited to the hello test and user-initiated file
-transfers between devices the user explicitly connected.
+yet; application data therefore stays limited to the hello test, user-initiated file transfers
+and opt-in clipboard sharing between devices the user explicitly connected.
 
 See `messages.md`, `security.md` and `versioning.md`.

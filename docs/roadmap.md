@@ -32,7 +32,7 @@
 ## Phase 5 — Useful features
 - [x] File transfer messages (BLE, base64 chunks)
 - [ ] File receiver in the Android app
-- [ ] Clipboard synchronization
+- [x] Clipboard synchronization (Windows ↔ Android, opt-in, not yet encrypted)
 - [ ] Connection history
 - [ ] Multiple trusted devices
 

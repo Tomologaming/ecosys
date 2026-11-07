@@ -41,7 +41,25 @@ data class EcosysMessage(
             payload = JSONObject()
                 .put("deviceName", deviceName)
                 .put("platform", "android")
-                .put("capabilities", JSONArray().put("hello").put("ping"))
+                .put("capabilities", JSONArray().put("hello").put("ping").put("clipboard"))
+        )
+
+        fun clipboardSet(sender: String, update: ClipboardUpdate): EcosysMessage = EcosysMessage(
+            type = "clipboard.set",
+            sender = sender,
+            payload = JSONObject()
+                .put("text", update.text)
+                .put("format", ClipboardSync.FORMAT)
+                .put("hash", update.hash)
+                .put("bytes", update.bytes)
+        )
+
+        fun clipboardState(sender: String, enabled: Boolean): EcosysMessage = EcosysMessage(
+            type = "clipboard.state",
+            sender = sender,
+            payload = JSONObject()
+                .put("enabled", enabled)
+                .put("maxChars", ClipboardSync.MAX_CHARS)
         )
     }
 }

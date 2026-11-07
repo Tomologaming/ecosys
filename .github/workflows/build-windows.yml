@@ -37,6 +37,9 @@ jobs:
       - name: Build
         run: dotnet build windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release
 
+      - name: Run clipboard and protocol self-test
+        run: dotnet run --project windows/Ecosys.SelfTest/Ecosys.SelfTest.csproj --configuration Release
+
       - name: Publish
         run: dotnet publish windows/Ecosys.Windows/Ecosys.Windows.csproj --configuration Release --runtime win-x64 --self-contained true --output dist/publish -p:PublishSingleFile=false
 

@@ -109,6 +109,21 @@ The first implementation should create one session key per connection. Before pr
 
 Implementations MUST enforce maximum handshake/message sizes and abort malformed frames instead of attempting to recover from ambiguous input.
 
+## Implementation status (v0)
+
+The authenticated session described above is **not** implemented yet. Windows, Android and iOS
+currently exchange `hello`, `ping` and (Windows ↔ Android) clipboard messages over an
+unencrypted RFCOMM/BLE link.
+
+Because that violates the rule that application data must not travel before authentication, the
+clients apply a temporary gate: clipboard sharing is off by default, can only be enabled while a
+connection exists, and the user has to confirm an explicit warning that the link is unencrypted.
+Nothing is shared automatically after connecting.
+
+This gate is a stopgap, not a substitute for the handshake. Until the session described above
+ships, clipboard traffic MUST stay opt-in per connection and MUST NOT be extended to new data
+types (files, notifications, history).
+
 ## Compatibility
 
 Security framing has its own version. A future incompatible security framing MUST increment that version even if the outer Ecosys protocol remains `ecosys/1`.

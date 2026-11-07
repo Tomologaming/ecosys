@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <WindowsSdkPackageVersion>10.0.26100.1</WindowsSdkPackageVersion>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU</Platforms>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Ecosys.SelfTest</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ecosys.Windows\Ecosys.Windows.csproj" />
+  </ItemGroup>
+</Project>

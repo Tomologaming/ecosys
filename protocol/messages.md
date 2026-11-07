@@ -50,6 +50,43 @@ Final authentication message containing the initiator signature over the same tr
 ### error
 Payload contains a stable error code and a human-readable message.
 
+## Clipboard
+
+Clipboard synchronisation is an opt-in feature. A peer MUST NOT send clipboard messages before
+the user has explicitly confirmed the connection on that device (see `security.md`).
+
+### clipboard.state
+
+```json
+{ "enabled": true, "maxChars": 65536 }
+```
+
+- `enabled`: whether the sender currently shares its clipboard
+- `maxChars`: the largest text the sender accepts in a single `clipboard.set`
+
+A peer sends this message after `hello`, and whenever the user enables or disables sharing.
+
+### clipboard.set
+
+```json
+{ "text": "hallo", "format": "text/plain", "hash": "sha256:2cf24dba5fb0a30e", "bytes": 5 }
+```
+
+- `text`: plain-text clipboard content
+- `format`: currently always `text/plain`; unknown formats MUST be ignored
+- `hash`: `sha256:` followed by the first 16 hex characters of SHA-256 over the UTF-8 text
+- `bytes`: UTF-8 byte length of `text`, used for a cheap length check
+
+Rules:
+
+- Implementations MUST reject a message whose `hash` does not match `text`, whose `bytes` does
+  not match the UTF-8 length, or whose text exceeds 65 536 characters.
+- Implementations MUST ignore empty text.
+- A receiver MUST ignore a `clipboard.set` whose content it already placed on its own clipboard,
+  and MUST NOT echo it back. This is what stops two devices from ping-ponging one value.
+- Clipboard content is user data. The current transport is not yet encrypted, so both apps gate
+  sharing behind an explicit per-connection confirmation and never enable it automatically.
+
 ## File transfer
 
 File messages carry all type-specific data in `payload`. They are implemented by the Windows
