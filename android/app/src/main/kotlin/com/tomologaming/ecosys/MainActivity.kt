@@ -12,6 +12,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -53,9 +54,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var clipboardDetail: TextView
     private lateinit var clipboardToggle: Button
     private lateinit var clipboardSendButton: Button
+    private lateinit var knownPeersDetail: TextView
+    private lateinit var knownPeersContainer: LinearLayout
 
+    private lateinit var prefs: SharedPreferences
     private var transport: BluetoothTransport? = null
     private var identity: DeviceIdentity? = null
+    private var peerId: String? = null
+    private val knownPeers = KnownPeers()
     private val clipboardSync = ClipboardSync()
     private var clipboardManager: ClipboardManager? = null
     private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
@@ -123,6 +129,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        knownPeers.load(prefs.getString(PEERS_KEY, null))
         buildUi()
 
         identity = runCatching { DeviceIdentity() }.getOrNull()
@@ -175,6 +183,9 @@ class MainActivity : ComponentActivity() {
 
         content.addView(sectionLabel("ZWISCHENABLAGE"), topMargin(22))
         content.addView(buildClipboardCard(), topMargin(8))
+
+        content.addView(sectionLabel("BEKANNTE GERÄTE"), topMargin(22))
+        content.addView(buildKnownPeersCard(), topMargin(8))
 
         content.addView(sectionLabel("AKTIVITÄT"), topMargin(22))
         content.addView(buildActivityCard(), topMargin(8))
@@ -410,6 +421,25 @@ class MainActivity : ComponentActivity() {
         return card
     }
 
+    private fun buildKnownPeersCard(): View {
+        val card = cardContainer()
+
+        card.addView(label("Frühere Verbindungen", 15f, color(R.color.ecosys_ink), medium = true))
+        knownPeersDetail = label("", 12f, color(R.color.ecosys_muted))
+            .apply { setPadding(0, 4.dp, 0, 0) }
+        card.addView(knownPeersDetail)
+
+        knownPeersContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        card.addView(knownPeersContainer, topMargin(6))
+
+        val forget = actionButton("Verlauf leeren", primary = false)
+        forget.setOnClickListener { forgetPeerHistory() }
+        card.addView(forget, topMargin(12))
+
+        renderKnownPeers()
+        return card
+    }
+
     private fun buildActivityCard(): View {
         val card = cardContainer()
         activityText = label("Noch keine Aktivität.", 10f, color(R.color.ecosys_muted)).apply {
@@ -532,12 +562,14 @@ class MainActivity : ComponentActivity() {
                 adapter = adapter,
                 onMessage = { message ->
                     runOnUiThread {
-                        if (message.type == "clipboard.set") {
-                            handleIncomingClipboard(message.payload)
-                        } else {
-                            setStatus("Empfangen: ${message.type}")
-                            val name = message.payload.optString("deviceName")
-                            addLog("← ${message.type}${if (name.isEmpty()) "" else " · $name"}")
+                        when (message.type) {
+                            "clipboard.set" -> handleIncomingClipboard(message.payload)
+                            "hello" -> handleHello(message)
+                            else -> {
+                                setStatus("Empfangen: ${message.type}")
+                                val name = message.payload.optString("deviceName")
+                                addLog("← ${message.type}${if (name.isEmpty()) "" else " · $name"}")
+                            }
                         }
                     }
                 },
@@ -560,7 +592,9 @@ class MainActivity : ComponentActivity() {
                             announceClipboardState()
                         } else {
                             clipboardSync.setEnabled(false)
+                            peerId = null
                         }
+                        renderKnownPeers()
                         updateClipboardUi()
                     }
                 }
@@ -622,8 +656,10 @@ class MainActivity : ComponentActivity() {
 
     private fun disconnect() {
         clipboardSync.setEnabled(false)
+        peerId = null
         transport?.disconnect()
         updateConnectionButtons(false)
+        renderKnownPeers()
         updateClipboardUi()
     }
 
@@ -715,28 +751,62 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Verbindung ist nicht verschlüsselt")
-            .setMessage(
-                "Die Zwischenablage läuft im Klartext über Bluetooth. Die verschlüsselte " +
-                    "Sitzung ist noch nicht fertig – teile nur mit Geräten, denen du vertraust."
-            )
-            .setNegativeButton("Abbrechen", null)
-            .setPositiveButton("Trotzdem aktivieren") { _, _ ->
-                clipboardSync.setEnabled(true)
-                active.send(EcosysMessage.clipboardState(senderId(), true))
-                setStatus("Teilen aktiv")
-                addLog("Zwischenablage: an")
-                updateClipboardUi()
-                shareLocalClipboard()
-            }
-            .show()
+        val id = peerId
+        if (id == null) {
+            setStatus("Gerät noch nicht erkannt")
+            addLog("Zwischenablage: erst Hello senden")
+            return
+        }
+
+        if (!knownPeers.isTrusted(id)) {
+            val name = knownPeers.find(id)?.name ?: "Die Gegenstelle"
+            AlertDialog.Builder(this)
+                .setTitle("Gerät bestätigen")
+                .setMessage(
+                    "$name ist auf diesem Gerät noch nicht bestätigt.\n\n" +
+                        "Die Zwischenablage läuft im Klartext über Bluetooth – die verschlüsselte " +
+                        "Sitzung ist noch nicht fertig.\n\nGerät bestätigen und Teilen aktivieren?"
+                )
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("Bestätigen") { _, _ ->
+                    knownPeers.setTrusted(id, true)
+                    savePeers()
+                    addLog("$name bestätigt")
+                    renderKnownPeers()
+                    enableClipboardSharing(active)
+                }
+                .show()
+            return
+        }
+
+        enableClipboardSharing(active)
+    }
+
+    private fun enableClipboardSharing(active: BluetoothTransport) {
+        clipboardSync.setEnabled(true)
+        active.send(EcosysMessage.clipboardState(senderId(), true))
+        setStatus("Teilen aktiv")
+        addLog("Zwischenablage: an")
+        updateClipboardUi()
+        shareLocalClipboard()
+    }
+
+    private fun stopClipboardSharing() {
+        clipboardSync.setEnabled(false)
+        val active = transport
+        if (active != null && active.isConnected) {
+            active.send(EcosysMessage.clipboardState(senderId(), false))
+        }
+        addLog("Zwischenablage: aus (Gerät nicht mehr bestätigt)")
+        updateClipboardUi()
     }
 
     private fun updateClipboardUi() {
         if (!::clipboardDetail.isInitialized) return
         val connected = transport?.isConnected == true
         val sharing = clipboardSync.enabled
+        val id = peerId
+        val trusted = knownPeers.isTrusted(id)
 
         clipboardToggle.text = if (sharing) "Teilen beenden" else "Teilen aktivieren"
         clipboardToggle.isEnabled = connected
@@ -746,8 +816,13 @@ class MainActivity : ComponentActivity() {
 
         clipboardDetail.text = when {
             !connected -> "Verbinde zuerst ein Gerät."
-            sharing -> "An · Text wird in beide Richtungen übertragen, solange die Verbindung steht."
-            else -> "Aus · nichts wird übertragen. Aktivieren erfordert eine Bestätigung."
+            id == null -> "Sende zuerst Hello, damit die Gegenstelle bekannt ist."
+            sharing -> {
+                val suffix = if (trusted) " (bestätigtes Gerät)." else "."
+                "An · Text wird in beide Richtungen übertragen$suffix"
+            }
+            trusted -> "Aus · Gerät ist bestätigt, Teilen bleibt eine bewusste Aktion."
+            else -> "Aus · Gerät ist nicht bestätigt. Aktivieren verlangt eine Freigabe."
         }
     }
 
@@ -772,6 +847,106 @@ class MainActivity : ComponentActivity() {
         log.addFirst("$stamp  $message")
         while (log.size > 7) log.removeLast()
         if (::activityText.isInitialized) activityText.text = log.joinToString("\n")
+    }
+
+    // ------------------------------------------------------ known peers
+
+    private fun renderKnownPeers() {
+        if (!::knownPeersContainer.isInitialized) return
+
+        val peers = knownPeers.list()
+        val trusted = peers.count { it.trusted }
+        val plural = if (peers.size == 1) "" else "e"
+        knownPeersDetail.text = when {
+            peers.isEmpty() ->
+                "Noch keine Geräte bekannt. Nach einem Hello trägt sich die Gegenstelle hier ein."
+            trusted == 0 -> "${peers.size} Gerät$plural im Verlauf · keines bestätigt."
+            else -> "${peers.size} Gerät$plural im Verlauf · $trusted bestätigt."
+        }
+
+        knownPeersContainer.removeAllViews()
+        var first = true
+        for (peer in peers) {
+            if (!first) {
+                knownPeersContainer.addView(
+                    View(this).apply { setBackgroundColor(color(R.color.ecosys_line)) },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp).apply {
+                        topMargin = 10.dp
+                        bottomMargin = 10.dp
+                    }
+                )
+            }
+            first = false
+            knownPeersContainer.addView(knownPeerRow(peer))
+        }
+    }
+
+    private fun knownPeerRow(peer: KnownPeer): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        texts.addView(label(peer.name, 14f, color(R.color.ecosys_ink), medium = true))
+        val platform = when (peer.platform) {
+            "android" -> "Android"
+            "windows" -> "Windows"
+            "ios" -> "iOS"
+            "macos" -> "macOS"
+            else -> "Unbekannt"
+        }
+        val seen = KnownPeers.describeLastSeen(System.currentTimeMillis(), peer.lastSeen)
+        val parts = mutableListOf(platform, "zuletzt $seen")
+        if (peer.trusted) parts.add("bestätigt")
+        if (peer.id == peerId) parts.add("verbunden")
+        texts.addView(label(parts.joinToString(" · "), 11f, color(R.color.ecosys_muted)))
+        row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
+        val toggle = actionButton(if (peer.trusted) "Entziehen" else "Vertrauen", primary = false)
+        toggle.setOnClickListener { setPeerTrusted(peer, !peer.trusted) }
+        row.addView(toggle)
+        return row
+    }
+
+    private fun setPeerTrusted(peer: KnownPeer, trusted: Boolean) {
+        if (!knownPeers.setTrusted(peer.id, trusted)) return
+        savePeers()
+        addLog(if (trusted) "${peer.name} bestätigt" else "Bestätigung für ${peer.name} entzogen")
+        setStatus(if (trusted) "${peer.name} bestätigt" else "${peer.name} ist nicht mehr bestätigt")
+        if (!trusted && peer.id == peerId && clipboardSync.enabled) stopClipboardSharing()
+        renderKnownPeers()
+        updateClipboardUi()
+    }
+
+    private fun forgetPeerHistory() {
+        val removed = knownPeers.forgetUntrusted()
+        if (removed == 0) {
+            setStatus("Verlauf enthält nur bestätigte Geräte")
+            addLog("Verlauf: nichts zu leeren")
+            return
+        }
+        savePeers()
+        renderKnownPeers()
+        val plural = if (removed == 1) "" else "e"
+        setStatus("$removed Gerät$plural vergessen")
+        addLog("Verlauf geleert · $removed Gerät$plural")
+    }
+
+    private fun handleHello(message: EcosysMessage) {
+        val name = message.payload.optString("deviceName").ifEmpty { transport?.peerName ?: "Gerät" }
+        peerId = message.sender.ifEmpty { null }
+        if (knownPeers.record(message.sender, name, message.payload.optString("platform"))) {
+            savePeers()
+            renderKnownPeers()
+        }
+        setStatus("Empfangen: hello · $name")
+        addLog("← hello · $name")
+        updateClipboardUi()
+    }
+
+    private fun savePeers() {
+        prefs.edit().putString(PEERS_KEY, knownPeers.snapshot()).apply()
     }
 
     // -------------------------------------------------------- permissions
@@ -839,6 +1014,11 @@ class MainActivity : ComponentActivity() {
 
     private val Int.dp: Int
         get() = (this * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val PREFS = "ecosys"
+        const val PEERS_KEY = "knownPeers"
+    }
 }
 
 private inline fun <reified T : android.os.Parcelable> Intent.getParcelableExtraCompat(name: String): T? =

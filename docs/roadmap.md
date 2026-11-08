@@ -26,15 +26,15 @@
 - [x] hello / hello.ack (hello only)
 - [x] Bidirectional test message
 - [x] Diagnostics/logging
-- [ ] Explicit peer confirmation
+- [x] Explicit peer confirmation (local trust list, revocable)
 - [ ] Secure session
 
 ## Phase 5 — Useful features
 - [x] File transfer messages (BLE, base64 chunks)
 - [ ] File receiver in the Android app
 - [x] Clipboard synchronization (Windows ↔ Android, opt-in, not yet encrypted)
-- [ ] Connection history
-- [ ] Multiple trusted devices
+- [x] Connection history (both clients, capped)
+- [x] Multiple trusted devices (local trust list)
 
 ## Phase 6 — More transports
 - [ ] Wi-Fi/LAN transport

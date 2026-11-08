@@ -14,4 +14,6 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     testImplementation("junit:junit:4.13.2")
+    // Real org.json implementation: android.jar only ships throwing stubs for unit tests.
+    testImplementation("org.json:json:20240303")
 }

@@ -36,9 +36,12 @@ internal sealed class EcosysForm : Form
     private readonly RoundedButton clipboardSendButton = new();
     private readonly System.Windows.Forms.Timer clipboardTimer = new();
     private readonly ClipboardSync clipboard = new();
+    private readonly KnownPeersCard peersCard = new();
 
+    private KnownPeers peers = new();
     private DeviceIdentity? identity;
     private string localSender = "windows";
+    private string? peerId;
     private bool clipboardBusy;
 
     public EcosysForm()
@@ -54,6 +57,7 @@ internal sealed class EcosysForm : Form
         Icon = LogoArt.AppIcon;
         KeyPreview = true;
 
+        peers = KnownPeers.Open(PeerStorePath());
         BuildUi();
         WireEvents();
 
@@ -251,6 +255,9 @@ internal sealed class EcosysForm : Form
         content.AddItem(Section("ZWISCHENABLAGE"), 6);
         content.AddItem(BuildClipboardCard(), 18);
 
+        content.AddItem(Section("BEKANNTE GERÄTE"), 6);
+        content.AddItem(peersCard, 18);
+
         content.AddItem(Section("AKTIVITÄT"), 6);
         activityLabel.Font = Theme.Mono;
         activityLabel.ForeColor = Theme.Muted;
@@ -277,6 +284,7 @@ internal sealed class EcosysForm : Form
         content.AddItem(footer, 12);
 
         RefreshActivity();
+        RefreshPeers();
     }
 
     private RoundedPanel BuildIdentityCard()
@@ -574,6 +582,8 @@ internal sealed class EcosysForm : Form
         transport.MessageReceived += (_, message) => OnMessage(message);
 
         deviceList.ConnectRequested += async (_, device) => await ConnectAsync(device);
+        peersCard.TrustToggled += (_, id) => TogglePeerTrust(id);
+        peersCard.ClearRequested += (_, _) => ClearPeerHistory();
     }
 
     private async Task ScanAsync()
@@ -679,6 +689,21 @@ internal sealed class EcosysForm : Form
 
         ReceivedMessage.TryParse(raw, out var received);
 
+        if (received?.Type == "hello")
+        {
+            if (!string.IsNullOrWhiteSpace(received.Sender))
+                peerId = received.Sender;
+
+            if (peers.Record(peerId, received.DeviceName, received.Platform,
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+            {
+                SavePeers();
+                RefreshPeers();
+            }
+
+            UpdateClipboardUi();
+        }
+
         if (received?.Type == "clipboard.set")
         {
             HandleIncomingClipboard(raw);
@@ -738,6 +763,8 @@ internal sealed class EcosysForm : Form
         {
             clipboard.SetEnabled(false);
             clipboardTimer.Stop();
+            peerId = null;
+            RefreshPeers();
         }
 
         UpdateClipboardUi();
@@ -749,6 +776,7 @@ internal sealed class EcosysForm : Form
     {
         var connected = transport.IsConnected;
         var sharing = clipboard.Enabled;
+        var trusted = peers.IsTrusted(peerId);
 
         clipboardToggle.Text = sharing ? "Teilen beenden" : "Teilen aktivieren";
         clipboardToggle.Enabled = connected;
@@ -756,9 +784,13 @@ internal sealed class EcosysForm : Form
 
         clipboardDetail.Text = !connected
             ? "Verbinde zuerst ein Gerät."
-            : sharing
-                ? "An · Text wird in beide Richtungen übertragen, solange die Verbindung steht."
-                : "Aus · nichts wird übertragen. Aktivieren erfordert eine Bestätigung.";
+            : peerId is null
+                ? "Sende zuerst Hello, damit die Gegenstelle bekannt ist."
+                : sharing
+                    ? $"An · Text wird in beide Richtungen übertragen{(trusted ? " (bestätigtes Gerät)." : ".")}"
+                    : trusted
+                        ? "Aus · Gerät ist bestätigt, Teilen bleibt eine bewusste Aktion."
+                        : "Aus · Gerät ist nicht bestätigt. Aktivieren verlangt eine Freigabe.";
     }
 
     private static string? ReadClipboardText()
@@ -902,16 +934,32 @@ internal sealed class EcosysForm : Form
             return;
         }
 
-        var answer = MessageBox.Show(
-            this,
-            "Die Zwischenablage läuft im Klartext über Bluetooth. Die verschlüsselte Sitzung ist noch nicht fertig – teile nur mit Geräten, denen du vertraust.\n\nTrotzdem aktivieren?",
-            "Verbindung ist nicht verschlüsselt",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Warning,
-            MessageBoxDefaultButton.Button2);
-
-        if (answer != DialogResult.Yes)
+        if (peerId is null)
+        {
+            SetStatus("Gerät noch nicht erkannt");
+            AddLog("Zwischenablage: erst Hello senden");
             return;
+        }
+
+        if (!peers.IsTrusted(peerId))
+        {
+            var name = peers.Find(peerId)?.Name ?? "Die Gegenstelle";
+            var confirm = MessageBox.Show(
+                this,
+                $"{name} ist auf diesem Rechner noch nicht bestätigt.\n\nDie Zwischenablage läuft im Klartext über Bluetooth – die verschlüsselte Sitzung ist noch nicht fertig.\n\nGerät bestätigen und Teilen aktivieren?",
+                "Gerät bestätigen",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (confirm != DialogResult.Yes)
+                return;
+
+            peers.SetTrusted(peerId, true);
+            SavePeers();
+            RefreshPeers();
+            AddLog($"{name} bestätigt");
+        }
 
         clipboard.SetEnabled(true);
         clipboardTimer.Start();
@@ -920,6 +968,15 @@ internal sealed class EcosysForm : Form
         AddLog("Zwischenablage: an");
         UpdateClipboardUi();
         await ShareClipboardAsync();
+    }
+
+    private async Task StopClipboardSharingAsync()
+    {
+        clipboard.SetEnabled(false);
+        clipboardTimer.Stop();
+        await SendClipboardStateAsync(false);
+        AddLog("Zwischenablage: aus (Gerät nicht mehr bestätigt)");
+        UpdateClipboardUi();
     }
 
     private async Task SendClipboardStateAsync(bool enabled)
@@ -932,6 +989,63 @@ internal sealed class EcosysForm : Form
         {
             AddLog($"clipboard.state nicht gesendet: {ex.Message}");
         }
+    }
+
+    // ------------------------------------------------------- known peers
+
+    private static string PeerStorePath() => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Ecosys",
+        "peers.json");
+
+    private void SavePeers()
+    {
+        if (!peers.Save())
+            AddLog("Geräteliste konnte nicht gespeichert werden");
+    }
+
+    private void RefreshPeers()
+    {
+        peersCard.Refresh(peers.List, peerId);
+        content.Relayout();
+    }
+
+    private void TogglePeerTrust(string id)
+    {
+        var peer = peers.Find(id);
+        if (peer is null)
+            return;
+
+        var trusted = !peer.Trusted;
+        if (!peers.SetTrusted(id, trusted))
+            return;
+
+        SavePeers();
+        AddLog(trusted ? $"{peer.Name} bestätigt" : $"Bestätigung für {peer.Name} entzogen");
+        SetStatus(trusted ? $"{peer.Name} bestätigt" : $"{peer.Name} ist nicht mehr bestätigt");
+
+        if (!trusted && id == peerId && clipboard.Enabled)
+            _ = StopClipboardSharingAsync();
+
+        RefreshPeers();
+        UpdateClipboardUi();
+    }
+
+    private void ClearPeerHistory()
+    {
+        var removed = peers.ForgetUntrusted();
+        if (removed == 0)
+        {
+            SetStatus("Verlauf enthält nur bestätigte Geräte");
+            AddLog("Verlauf: nichts zu leeren");
+            return;
+        }
+
+        SavePeers();
+        RefreshPeers();
+        var plural = removed == 1 ? "" : "e";
+        SetStatus($"{removed} Gerät{plural} vergessen");
+        AddLog($"Verlauf geleert · {removed} Gerät{plural}");
     }
 
     private void AddLog(string message)

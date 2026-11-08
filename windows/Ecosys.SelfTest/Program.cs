@@ -107,6 +107,78 @@ Check("clipboard.state enabled flag", stateEnabled);
 CheckEqual("clipboard.state advertises the limit", ClipboardSync.MaxChars, stateMax);
 Check("clipboard.state is not accepted as clipboard.set", !EcosysMessage.TryParseClipboard(stateJson, out _, out _, out _));
 
+// ------------------------------------------------------------ known peers
+var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+var peers = new KnownPeers();
+
+Check("history starts empty", peers.List.Count == 0);
+Check("unknown device is not trusted", !peers.IsTrusted("android-1"));
+Check("confirming an unknown device is refused", !peers.SetTrusted("android-1", true));
+
+Check("a first sighting is stored", peers.Record("android-1", "Pixel", "android", now - 5_000));
+CheckEqual("history holds one device", 1, peers.List.Count);
+CheckEqual("the reported name is kept", "Pixel", peers.Find("android-1")?.Name);
+CheckEqual("the platform is kept", "android", peers.Find("android-1")?.Platform);
+Check("new devices start unconfirmed", !peers.IsTrusted("android-1"));
+Check("blank ids are ignored", !peers.Record(" ", "Namenlos", "android", now));
+Check("missing ids are ignored", !peers.Record(null, "Namenlos", "android", now));
+
+Check("confirming reports a change", peers.SetTrusted("android-1", true));
+Check("confirming twice reports no change", !peers.SetTrusted("android-1", true));
+Check("a confirmed device is trusted", peers.IsTrusted("android-1"));
+
+Check("a later sighting updates the entry", peers.Record("android-1", "Pixel 8", "android", now));
+CheckEqual("the newer name wins", "Pixel 8", peers.Find("android-1")?.Name);
+Check("confirmation survives a later sighting", peers.IsTrusted("android-1"));
+Check("the same sighting twice reports no change", !peers.Record("android-1", "Pixel 8", "android", now));
+
+peers.Record("windows-1", "Büro-PC", "windows", now - 1_000);
+CheckEqual("the newest device is listed first", "android-1", peers.List[0].Id);
+
+for (var index = 0; index < KnownPeers.MaxPeers + 5; index++)
+    peers.Record($"android-extra-{index}", $"Gerät {index}", "android", now - 100_000 + index);
+
+CheckEqual("history is capped", KnownPeers.MaxPeers, peers.List.Count);
+Check("a confirmed device is never pruned", peers.IsTrusted("android-1"));
+Check("the oldest unconfirmed devices are dropped", peers.Find("android-extra-0") is null);
+Check("a newer unconfirmed device is kept", peers.Find("windows-1") is not null);
+
+var dropped = peers.ForgetUntrusted();
+CheckEqual("clearing removes only unconfirmed devices", KnownPeers.MaxPeers - 1, dropped);
+CheckEqual("one device remains after clearing", 1, peers.List.Count);
+Check("the remaining device is the confirmed one", peers.IsTrusted("android-1"));
+
+var encoded = KnownPeers.Encode(peers.List);
+var restored = KnownPeers.Decode(encoded);
+CheckEqual("stored history round-trips", 1, restored.Count);
+CheckEqual("round-trip keeps the id", "android-1", restored[0].Id);
+CheckEqual("round-trip keeps the name", "Pixel 8", restored[0].Name);
+Check("round-trip keeps the confirmation", restored[0].Trusted);
+
+Check("damaged history is ignored", KnownPeers.Decode("{nope").Count == 0);
+Check("missing history is ignored", KnownPeers.Decode(null).Count == 0);
+Check("a non-array history is ignored", KnownPeers.Decode("{\"peers\":3}").Count == 0);
+Check("entries without an id are skipped", KnownPeers.Decode("{\"peers\":[{\"name\":\"ohne id\"}]}").Count == 0);
+
+var duplicates = KnownPeers.Decode(
+    "{\"peers\":[{\"id\":\"a\",\"lastSeen\":5,\"trusted\":false},{\"id\":\"a\",\"lastSeen\":9,\"trusted\":true}]}");
+CheckEqual("duplicate ids collapse", 1, duplicates.Count);
+Check("the newest duplicate wins", duplicates[0].LastSeen == 9 && duplicates[0].Trusted);
+CheckEqual("nameless devices get a fallback name", "Unbekanntes Gerät",
+    KnownPeers.Decode("{\"peers\":[{\"id\":\"b\"}]}")[0].Name);
+CheckEqual("devices without a timestamp start at zero", 0L,
+    KnownPeers.Decode("{\"peers\":[{\"id\":\"c\"}]}")[0].LastSeen);
+
+CheckEqual("fresh sightings read as just now", "gerade eben", KnownPeers.DescribeLastSeen(now, now - 30_000));
+CheckEqual("future timestamps read as just now", "gerade eben", KnownPeers.DescribeLastSeen(now, now + 5_000));
+CheckEqual("minutes are counted", "vor 5 Min", KnownPeers.DescribeLastSeen(now, now - 5 * 60_000));
+CheckEqual("hours are counted", "vor 3 Std", KnownPeers.DescribeLastSeen(now, now - 3 * 3_600_000));
+CheckEqual("yesterday is named", "gestern", KnownPeers.DescribeLastSeen(now, now - 30 * 3_600_000));
+CheckEqual("days are counted", "vor 3 Tagen", KnownPeers.DescribeLastSeen(now, now - 3 * 86_400_000));
+Check("older sightings fall back to a date",
+    System.Text.RegularExpressions.Regex.IsMatch(
+        KnownPeers.DescribeLastSeen(now, now - 40L * 86_400_000), @"^\d{2}\.\d{2}\.\d{4}$"));
+
 Console.WriteLine();
 Console.WriteLine(failures == 0 ? "All checks passed." : $"{failures} check(s) failed.");
 return failures == 0 ? 0 : 1;

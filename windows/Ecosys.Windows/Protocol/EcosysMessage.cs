@@ -123,7 +123,7 @@ public sealed record EcosysMessage(
 }
 
 /// <summary>Read-only view of a received envelope, used for the activity feed.</summary>
-public sealed record ReceivedMessage(string Type, string Sender, string? DeviceName)
+public sealed record ReceivedMessage(string Type, string Sender, string? DeviceName, string? Platform)
 {
     public static bool TryParse(string json, out ReceivedMessage? message)
     {
@@ -156,7 +156,16 @@ public sealed record ReceivedMessage(string Type, string Sender, string? DeviceN
                 deviceName = name.GetString();
             }
 
-            message = new ReceivedMessage(type.GetString()!, sender, deviceName);
+            string? platform = null;
+            if (root.TryGetProperty("payload", out var platformPayload) &&
+                platformPayload.ValueKind == JsonValueKind.Object &&
+                platformPayload.TryGetProperty("platform", out var platformElement) &&
+                platformElement.ValueKind == JsonValueKind.String)
+            {
+                platform = platformElement.GetString();
+            }
+
+            message = new ReceivedMessage(type.GetString()!, sender, deviceName, platform);
             return true;
         }
         catch (JsonException)

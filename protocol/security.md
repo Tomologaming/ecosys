@@ -116,9 +116,19 @@ currently exchange `hello`, `ping` and (Windows ↔ Android) clipboard messages 
 unencrypted RFCOMM/BLE link.
 
 Because that violates the rule that application data must not travel before authentication, the
-clients apply a temporary gate: clipboard sharing is off by default, can only be enabled while a
-connection exists, and the user has to confirm an explicit warning that the link is unencrypted.
-Nothing is shared automatically after connecting.
+clients apply a temporary gate built on a local trust list:
+
+- The first `hello` from a peer adds it to a local history keyed by the identity ID in the
+  envelope, together with the reported name, the platform and the last-seen time.
+- Clipboard sharing is off by default and can only be enabled while a connection exists.
+- Enabling it requires the peer to be **confirmed** by the user on this device. That confirmation
+  is stored locally, can be revoked at any time, and revoking it stops sharing immediately.
+- Confirming is a local decision, not a cryptographic one: it records "I have seen this device ID
+  before". The client still warns that the link is unencrypted.
+
+Nothing is shared automatically after connecting, and a peer that was never confirmed cannot
+start clipboard traffic from the other side either: the receiving client drops `clipboard.set`
+while sharing is off.
 
 This gate is a stopgap, not a substitute for the handshake. Until the session described above
 ships, clipboard traffic MUST stay opt-in per connection and MUST NOT be extended to new data
