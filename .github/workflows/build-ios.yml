@@ -52,13 +52,18 @@ jobs:
             | head -n 1)"
           test -n "$DEVICE_ID"
           echo "Running on simulator $DEVICE_ID"
+          # set -euo pipefail above already fails the step when xcodebuild does;
+          # the log copy keeps the run count assertable below.
+          LOG="$RUNNER_TEMP/xcodebuild-tests.log"
           xcodebuild test \
             -project ios/Ecosys.xcodeproj \
             -scheme EcosysTests \
             -destination "platform=iOS Simulator,id=$DEVICE_ID" \
             -derivedDataPath build/DerivedDataTests \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO | tee "$LOG"
+          # A scheme that silently runs nothing must not look green.
+          grep -Eq "Executed [0-9]+ tests?, with 0 failures" "$LOG"
 
       - name: Build iOS app for Sideloadly
         run: |
