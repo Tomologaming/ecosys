@@ -63,7 +63,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO | tee "$LOG"
           # A scheme that silently runs nothing must not look green.
-          grep -Eq "Executed [0-9]+ tests?, with 0 failures" "$LOG"
+          grep -Eq "Executed [1-9][0-9]* tests?, with 0 failures" "$LOG"
 
       - name: Build iOS app for Sideloadly
         run: |
