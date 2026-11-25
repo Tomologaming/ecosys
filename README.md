@@ -38,7 +38,13 @@ cd android && gradle assembleDebug
 cd android && gradle testDebugUnitTest
 ```
 
-The iOS app is built by the `Build iOS` workflow on a macOS runner; local builds need Xcode 15+.
+The iOS app is built by the `Build iOS` workflow on a macOS runner, which also runs its unit tests
+on a simulator; local builds and tests need Xcode 15+.
+
+```bash
+xcodebuild test -project ios/Ecosys.xcodeproj -scheme EcosysTests \
+  -destination 'platform=iOS Simulator,name=iPhone 16'
+```
 
 ## Documentation
 

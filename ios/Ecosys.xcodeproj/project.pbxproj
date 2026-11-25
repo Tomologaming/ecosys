@@ -12,6 +12,8 @@
  100000000000000000000003 /* BluetoothManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000003 /* BluetoothManager.swift */; };
  100000000000000000000004 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000006 /* Assets.xcassets */; };
  100000000000000000000005 /* KnownPeers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* KnownPeers.swift */; };
+ 100000000000000000000006 /* KnownPeers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000007 /* KnownPeers.swift */; };
+ 100000000000000000000007 /* KnownPeersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 200000000000000000000008 /* KnownPeersTests.swift */; };
 
 /* End PBXBuildFile section */
 
@@ -23,11 +25,14 @@
  200000000000000000000005 /* Ecosys.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ecosys.app; sourceTree = BUILT_PRODUCTS_DIR; };
  200000000000000000000006 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
  200000000000000000000007 /* KnownPeers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownPeers.swift; sourceTree = "<group>"; };
+ 200000000000000000000008 /* KnownPeersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownPeersTests.swift; sourceTree = "<group>"; };
+ 200000000000000000000009 /* EcosysTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EcosysTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 
 /* End PBXFileReference section */
 
 /* PBXFrameworksBuildPhase section */
  300000000000000000000001 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+ 300000000000000000000002 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 
 /* End PBXFrameworksBuildPhase section */
 
@@ -40,12 +45,17 @@
  200000000000000000000004,
  200000000000000000000006,
  ); path = Ecosys; sourceTree = "<group>"; };
+ 400000000000000000000004 = {isa = PBXGroup; children = (
+ 200000000000000000000008,
+ ); path = EcosysTests; sourceTree = "<group>"; };
  400000000000000000000002 = {isa = PBXGroup; children = (
  400000000000000000000001,
+ 400000000000000000000004,
  400000000000000000000003,
  ); sourceTree = "<group>"; };
  400000000000000000000003 = {isa = PBXGroup; children = (
  200000000000000000000005,
+ 200000000000000000000009,
  ); name = Products; sourceTree = "<group>"; };
 
 /* End PBXGroup section */
@@ -56,16 +66,24 @@
  300000000000000000000001,
  800000000000000000000001
  ); buildRules = (); dependencies = (); name = Ecosys; productName = Ecosys; productReference = 200000000000000000000005; productType = "com.apple.product-type.application"; };
+ 500000000000000000000002 = {isa = PBXNativeTarget; buildConfigurationList = 700000000000000000000003; buildPhases = (
+ 600000000000000000000003,
+ 300000000000000000000002
+ ); buildRules = (); dependencies = (); name = EcosysTests; productName = EcosysTests; productReference = 200000000000000000000009; productType = "com.apple.product-type.bundle.unit-test"; };
 
 /* End PBXNativeTarget section */
 
 /* PBXProject section */
- 600000000000000000000002 = {isa = PBXProject; attributes = { LastUpgradeCheck = 1600; TargetAttributes = { 500000000000000000000001 = { CreatedOnToolsVersion = 16.0; }; }; }; buildConfigurationList = 700000000000000000000001; compatibilityVersion = "Xcode 14.0"; developmentRegion = de; hasScannedForEncodings = 0; knownRegions = (de, en, Base); mainGroup = 400000000000000000000002; productRefGroup = 400000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (500000000000000000000001); };
+ 600000000000000000000002 = {isa = PBXProject; attributes = { LastUpgradeCheck = 1600; TargetAttributes = { 500000000000000000000001 = { CreatedOnToolsVersion = 16.0; }; }; }; buildConfigurationList = 700000000000000000000001; compatibilityVersion = "Xcode 14.0"; developmentRegion = de; hasScannedForEncodings = 0; knownRegions = (de, en, Base); mainGroup = 400000000000000000000002; productRefGroup = 400000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (500000000000000000000001,500000000000000000000002); };
  600000000000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
  100000000000000000000001,
  100000000000000000000002,
  100000000000000000000003,
  100000000000000000000005
+ ); runOnlyForDeploymentPostprocessing = 0; };
+ 600000000000000000000003 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+ 100000000000000000000006,
+ 100000000000000000000007
  ); runOnlyForDeploymentPostprocessing = 0; };
 
 /* PBXResourcesBuildPhase */
@@ -121,10 +139,33 @@
  PRODUCT_NAME = "$(TARGET_NAME)";
  SWIFT_EMIT_LOC_STRINGS = YES;
  }; name = Release; };
+ 900000000000000000000005 = {isa = XCBuildConfiguration; buildSettings = {
+ CODE_SIGN_STYLE = Automatic;
+ ENABLE_TESTING_SEARCH_PATHS = YES;
+ GENERATE_INFOPLIST_FILE = YES;
+ IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+ PRODUCT_BUNDLE_IDENTIFIER = com.tomologaming.ecosys.tests;
+ PRODUCT_NAME = "$(TARGET_NAME)";
+ SDKROOT = iphoneos;
+ SWIFT_VERSION = 5.0;
+ TARGETED_DEVICE_FAMILY = "1,2";
+ }; name = Debug; };
+ 900000000000000000000006 = {isa = XCBuildConfiguration; buildSettings = {
+ CODE_SIGN_STYLE = Automatic;
+ ENABLE_TESTING_SEARCH_PATHS = YES;
+ GENERATE_INFOPLIST_FILE = YES;
+ IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+ PRODUCT_BUNDLE_IDENTIFIER = com.tomologaming.ecosys.tests;
+ PRODUCT_NAME = "$(TARGET_NAME)";
+ SDKROOT = iphoneos;
+ SWIFT_VERSION = 5.0;
+ TARGETED_DEVICE_FAMILY = "1,2";
+ }; name = Release; };
 
 /* XCConfigurationList section */
  700000000000000000000001 = {isa = XCConfigurationList; buildConfigurations = (900000000000000000000001,900000000000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
  700000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (900000000000000000000003,900000000000000000000004); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+ 700000000000000000000003 = {isa = XCConfigurationList; buildConfigurations = (900000000000000000000005,900000000000000000000006); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
  };
  rootObject = 600000000000000000000002;
 }

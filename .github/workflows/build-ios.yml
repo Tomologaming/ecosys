@@ -41,6 +41,25 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' ios/Ecosys/Info.plist)" = "APPL"
           test "$(/usr/libexec/PlistBuddy -c 'Print :NSBluetoothAlwaysUsageDescription' ios/Ecosys/Info.plist | wc -c)" -gt 10
 
+      - name: Run known-peers unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Use whichever iPhone simulator this runner image ships instead of
+          # hard-coding a device name that another macOS image may not have.
+          DEVICE_ID="$(xcrun simctl list devices available \
+            | sed -nE 's/^ *iPhone[^(]*\(([0-9A-Fa-f-]{36})\).*/\1/p' \
+            | head -n 1)"
+          test -n "$DEVICE_ID"
+          echo "Running on simulator $DEVICE_ID"
+          xcodebuild test \
+            -project ios/Ecosys.xcodeproj \
+            -scheme EcosysTests \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -derivedDataPath build/DerivedDataTests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
       - name: Build iOS app for Sideloadly
         run: |
           set -euo pipefail

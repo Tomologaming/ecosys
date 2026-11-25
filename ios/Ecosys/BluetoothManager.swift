@@ -314,10 +314,12 @@ final class BluetoothManager: NSObject, ObservableObject {
 
     private func recordPeer(sender: String?, name: String?, platform: String?) {
         let id = sender?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let id, !id.isEmpty {
-            currentPeerId = id
-        }
-        guard peerStore.record(id: id, name: name, platform: platform) else { return }
+        guard let id, !id.isEmpty else { return }
+        let changed = peerStore.record(id: id, name: name, platform: platform)
+        // The history caps ids, so the marker uses the stored key; otherwise the
+        // row for a long sender id would never read as connected.
+        currentPeerId = peerStore.find(id)?.id ?? id
+        guard changed else { return }
         savePeers()
         knownPeers = peerStore.list
     }

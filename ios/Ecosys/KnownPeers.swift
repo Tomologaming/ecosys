@@ -41,8 +41,8 @@ final class KnownPeers {
     }
 
     func find(_ id: String?) -> KnownPeer? {
-        guard let id else { return nil }
-        return peers[id]
+        guard let key = KnownPeers.key(id) else { return nil }
+        return peers[key]
     }
 
     /// True only for a device the user confirmed; unknown ids are never trusted.
@@ -54,11 +54,8 @@ final class KnownPeers {
     /// Returns true when the stored entry changed and the caller should persist.
     @discardableResult
     func record(id: String?, name: String?, platform: String?, now: Int64 = KnownPeers.now()) -> Bool {
-        guard let id else { return false }
-        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
+        guard let key = KnownPeers.key(id) else { return false }
 
-        let key = String(trimmed.prefix(KnownPeers.maxIdLength))
         let existing = peers[key]
         let next = KnownPeer(
             id: key,
@@ -91,8 +88,8 @@ final class KnownPeers {
 
     @discardableResult
     func forget(_ id: String?) -> Bool {
-        guard let id else { return false }
-        return peers.removeValue(forKey: id) != nil
+        guard let key = KnownPeers.key(id) else { return false }
+        return peers.removeValue(forKey: key) != nil
     }
 
     /// Clears the history of devices that were never confirmed. Confirmed
@@ -208,6 +205,15 @@ final class KnownPeers {
         formatter.dateFormat = "dd.MM.yyyy"
         return formatter
     }()
+
+    /// Stored key for an id: trimmed and capped exactly as `record` writes it,
+    /// so a padded or over-long sender still finds its entry.
+    private static func key(_ id: String?) -> String? {
+        guard let id else { return nil }
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxIdLength))
+    }
 
     private static func cleanName(_ raw: String?, fallback: String?) -> String {
         let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
