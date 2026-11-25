@@ -125,6 +125,9 @@ clients apply a temporary gate built on a local trust list:
   is stored locally, can be revoked at any time, and revoking it stops sharing immediately.
 - Confirming is a local decision, not a cryptographic one: it records "I have seen this device ID
   before". The client still warns that the link is unencrypted.
+- Windows, Android and iOS keep that list locally (Android `SharedPreferences`, Windows
+  `%APPDATA%\Ecosys\peers.json`, iOS `UserDefaults`) in the same document. iOS has no clipboard
+  sharing yet, so the gate protects nothing there; it still records the decision.
 
 Nothing is shared automatically after connecting, and a peer that was never confirmed cannot
 start clipboard traffic from the other side either: the receiving client drops `clipboard.set`

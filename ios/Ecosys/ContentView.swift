@@ -19,6 +19,7 @@ struct ContentView: View {
                     deviceCard
                     nearbySection
                     testSection
+                    knownPeersSection
                     footer
                 }
                 .padding(.horizontal, 20)
@@ -287,6 +288,118 @@ struct ContentView: View {
             }
         }
         .animation(.snappy(duration: 0.25), value: bluetooth.lastMessage)
+    }
+
+    private var knownPeersSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("BEKANNTE GERÄTE")
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Frühere Verbindungen")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(ink)
+                    Spacer(minLength: 0)
+                    if !bluetooth.knownPeers.isEmpty {
+                        Text("\(bluetooth.knownPeers.count)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(ink.opacity(0.55))
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .liquidGlass(cornerRadius: 10)
+                            .accessibilityLabel("\(bluetooth.knownPeers.count) bekannte Geräte")
+                    }
+                }
+
+                if bluetooth.knownPeers.isEmpty {
+                    Text("Noch keine Geräte bekannt. Nach einem Hello trägt sich die Gegenstelle hier ein.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(ink.opacity(0.62))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    ForEach(bluetooth.knownPeers) { peer in
+                        knownPeerRow(peer)
+                    }
+
+                    if unconfirmedPeerCount > 0 {
+                        Button {
+                            tapHaptic()
+                            bluetooth.clearPeerHistory()
+                        } label: {
+                            Text("Verlauf leeren")
+                                .font(.system(size: 13, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 11)
+                                .liquidGlass(cornerRadius: 15)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(ink)
+                        .accessibilityHint("Entfernt Geräte, die du nicht bestätigt hast. Bestätigte Geräte bleiben im Verlauf.")
+                    }
+                }
+            }
+            .padding(16)
+            .liquidGlass(cornerRadius: 22)
+
+            Text("iOS teilt noch keine Zwischenablage – die Bestätigung merkt sich deine Entscheidung für später.")
+                .font(.system(size: 11))
+                .foregroundStyle(ink.opacity(0.55))
+                .padding(.leading, 3)
+        }
+    }
+
+    private func knownPeerRow(_ peer: KnownPeer) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: peer.trusted ? "checkmark.seal.fill" : "person.crop.circle")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(peer.trusted ? green : ink.opacity(0.5))
+                .frame(width: 38, height: 38)
+                .liquidGlass(cornerRadius: 13)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(peer.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(ink)
+                Text(peerDetail(peer))
+                    .font(.system(size: 11))
+                    .foregroundStyle(ink.opacity(0.6))
+            }
+
+            Spacer(minLength: 4)
+
+            Button {
+                tapHaptic()
+                bluetooth.setTrusted(peer.id, !peer.trusted)
+            } label: {
+                Text(peer.trusted ? "Entziehen" : "Bestätigen")
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .liquidGlass(cornerRadius: 14)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(peer.trusted ? ink.opacity(0.75) : blue)
+            .accessibilityHint(peer.trusted
+                ? "Nimmt die Bestätigung für \(peer.name) zurück."
+                : "Merkt sich \(peer.name) als bestätigtes Gerät.")
+        }
+        .padding(12)
+        .liquidGlass(cornerRadius: 18)
+    }
+
+    private func peerDetail(_ peer: KnownPeer) -> String {
+        var parts = [
+            peer.platform,
+            "zuletzt \(KnownPeers.describeLastSeen(now: KnownPeers.now(), lastSeen: peer.lastSeen))"
+        ]
+        if peer.trusted { parts.append("bestätigt") }
+        if peer.id == bluetooth.currentPeerId { parts.append("verbunden") }
+        return parts.joined(separator: " · ")
+    }
+
+    private var unconfirmedPeerCount: Int {
+        bluetooth.knownPeers.filter { !$0.trusted }.count
     }
 
     private var footer: some View {

@@ -31,19 +31,21 @@ Limits and behaviour:
 
 ## Gerätebestätigung und Verlauf
 
-Section **BEKANNTE GERÄTE** in both apps. Every `hello` adds the peer to a local history; the entry
-shows platform, when it was last seen and whether it is confirmed.
+Section **BEKANNTE GERÄTE** in all three apps. Every `hello` adds the peer to a local history; the
+entry shows platform, when it was last seen and whether it is confirmed.
 
 1. Connect and send `hello` once so the neighbour is known.
-2. Tap **Vertrauen** on the entry. On Windows the same confirmation is offered when clipboard
-   sharing is enabled for a device that is not confirmed yet.
+2. Confirm the entry with the button on its right. On Windows the same confirmation is offered
+   when clipboard sharing is enabled for a device that is not confirmed yet.
 3. **Bestätigung entziehen** revokes it; sharing stops immediately if it was active.
 4. **Verlauf leeren** removes unconfirmed entries only. Confirmed devices stay, because deleting
    them would silently revoke a decision the user made.
 
 Storage: Android keeps the list in its private `SharedPreferences`, Windows in
-`%APPDATA%\Ecosys\peers.json`. Both clients keep at most 20 unconfirmed entries and never prune a
-confirmed device. Confirmation is bound to the identity ID from the envelope, so it survives a
+`%APPDATA%\Ecosys\peers.json` and iOS in `UserDefaults` — all three use the same JSON document.
+Every client keeps at most 20 unconfirmed entries and never prunes a confirmed device. iOS records
+history and confirmation but shares no clipboard yet, so the confirmation there only remembers the
+decision for later. Confirmation is bound to the identity ID from the envelope, so it survives a
 renamed Bluetooth device, but it is not a cryptographic proof — that is what the session handshake
 still has to provide.
 

@@ -5,9 +5,9 @@ other over Bluetooth and talk to each other; no cloud, no account, no relay serv
 
 Current status: Windows, Android and iOS apps exchange `hello` messages, the Windows and iOS
 apps plus the web bridge speak the Ecosys BLE file-transfer messages, and Windows ↔ Android can
-share plain-text clipboard content. Both clients keep a history of the devices they have met and
-only share the clipboard with devices the user confirmed; sharing is off by default and ends with
-the connection. The encrypted session is designed
+share plain-text clipboard content. All three clients keep a history of the devices they have met;
+Windows and Android share the clipboard only with devices the user confirmed, sharing is off by
+default and ends with the connection. The encrypted session is designed
 (see [protocol/security.md](protocol/security.md)) but not implemented yet, so clipboard traffic
 is unencrypted and today's build is a development preview.
 

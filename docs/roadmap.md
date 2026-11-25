@@ -33,7 +33,7 @@
 - [x] File transfer messages (BLE, base64 chunks)
 - [ ] File receiver in the Android app
 - [x] Clipboard synchronization (Windows ↔ Android, opt-in, not yet encrypted)
-- [x] Connection history (both clients, capped)
+- [x] Connection history (all three clients, capped)
 - [x] Multiple trusted devices (local trust list)
 
 ## Phase 6 — More transports
@@ -42,5 +42,6 @@
 
 ## Phase 7 — Apple platforms
 - [x] iOS/iPadOS BLE client and server
+- [x] Connection history and peer confirmation (same trust list as the other clients)
 - [ ] macOS client
 - [ ] AltStore distribution where appropriate

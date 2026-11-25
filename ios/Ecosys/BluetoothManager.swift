@@ -126,6 +126,9 @@ final class BluetoothManager: NSObject, ObservableObject {
     static let txUUID = CBUUID(string: "6E6F4D4F-0003-4D4F-4D4F-45434F595300")
     static let rxUUID = CBUUID(string: "6E6F4D4F-0004-4D4F-4D4F-45434F595300")
 
+    /// UserDefaults key holding the encoded history, the same document the other clients keep.
+    static let peersKey = "knownPeers"
+
     @Published var devices: [EcosysDevice] = []
     @Published var status = "Bluetooth wird initialisiert…"
     @Published var lastMessage: String?
@@ -134,9 +137,15 @@ final class BluetoothManager: NSObject, ObservableObject {
     @Published private(set) var connectedName: String?
     @Published private(set) var hasPeerSubscriber = false
 
+    /// Devices this iPhone has met before, newest first, with the user's confirmation.
+    @Published private(set) var knownPeers: [KnownPeer] = []
+    /// Identity from the last hello; keys the history entry and its confirmation.
+    @Published private(set) var currentPeerId: String?
+
     /// True when a hello can actually reach another device.
     var canSend: Bool { connectedName != nil || hasPeerSubscriber }
 
+    private let peerStore: KnownPeers
     private var central: CBCentralManager!
     private var connected: CBPeripheral?
     private var txCharacteristic: CBCharacteristic?
@@ -148,7 +157,9 @@ final class BluetoothManager: NSObject, ObservableObject {
     private var pendingNotifications: [Data] = []
 
     override init() {
+        peerStore = KnownPeers(json: UserDefaults.standard.string(forKey: BluetoothManager.peersKey))
         super.init()
+        knownPeers = peerStore.list
         central = CBCentralManager(delegate: self, queue: .main)
         peripheralManager = CBPeripheralManager(delegate: self, queue: .main)
     }
@@ -210,6 +221,7 @@ final class BluetoothManager: NSObject, ObservableObject {
         connected = nil
         txCharacteristic = nil
         connectedName = nil
+        currentPeerId = nil
         incomingFrames.reset()
         status = hasPeerSubscriber ? "Windows-Gerät verbunden" : "Bluetooth bereit"
     }
@@ -272,6 +284,48 @@ final class BluetoothManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Known devices
+
+    /// True only for a device the user confirmed.
+    func isTrusted(_ id: String?) -> Bool {
+        peerStore.isTrusted(id)
+    }
+
+    /// Stores the user's decision. iOS shares no clipboard yet, so revoking it ends
+    /// no transfer; the decision is kept in the same trust list as the other clients.
+    func setTrusted(_ id: String, _ trusted: Bool) {
+        guard peerStore.setTrusted(id, trusted) else { return }
+        savePeers()
+        knownPeers = peerStore.list
+        let name = peerStore.find(id)?.name ?? "Gerät"
+        status = trusted ? "\(name) bestätigt" : "Bestätigung für \(name) entzogen"
+    }
+
+    /// Removes every unconfirmed entry; confirmed devices stay, so a decision the
+    /// user made is never dropped silently.
+    func clearPeerHistory() {
+        let removed = peerStore.forgetUntrusted()
+        savePeers()
+        knownPeers = peerStore.list
+        status = removed == 0
+            ? "Keine unbestätigten Geräte im Verlauf"
+            : "\(removed) Eintrag/Einträge aus dem Verlauf entfernt"
+    }
+
+    private func recordPeer(sender: String?, name: String?, platform: String?) {
+        let id = sender?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let id, !id.isEmpty {
+            currentPeerId = id
+        }
+        guard peerStore.record(id: id, name: name, platform: platform) else { return }
+        savePeers()
+        knownPeers = peerStore.list
+    }
+
+    private func savePeers() {
+        UserDefaults.standard.set(peerStore.snapshot(), forKey: BluetoothManager.peersKey)
+    }
+
     // MARK: - Receiving
 
     private func receive(_ data: Data) {
@@ -289,6 +343,11 @@ final class BluetoothManager: NSObject, ObservableObject {
 
         switch type {
         case "hello":
+            recordPeer(
+                sender: object["sender"] as? String,
+                name: payload["deviceName"] as? String ?? deviceName,
+                platform: payload["platform"] as? String
+            )
             lastMessage = "hello · \(deviceName)"
             status = "Nachricht von \(deviceName)"
         case "hello.ack":
@@ -370,6 +429,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
         connected = nil
         txCharacteristic = nil
         connectedName = nil
+        currentPeerId = nil
         incomingFrames.reset()
         status = error == nil
             ? "Bluetooth-Verbindung getrennt"
